@@ -1,41 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 
+interface LoginResult {
+  success: boolean;
+  message?: string;
+  failedAttempts?: number;
+}
+
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, role: 'admin' | 'doctor' | 'student') => Promise<boolean>;
+  login: (email: string, password: string, role: 'admin' | 'doctor' | 'student') => Promise<LoginResult>;
   logout: () => void;
   loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock users for demonstration
-const mockUsers: User[] = [
-  {
-    id: '1',
-    email: 'admin@bienestar.edu',
-    name: 'Marco Julio',
-    role: 'admin',
-    createdAt: new Date(),
-  },
-  {
-    id: '2',
-    email: 'doctor@bienestar.edu',
-    name: 'Dr. María González',
-    role: 'doctor',
-    createdAt: new Date(),
-  },
-  {
-    id: '3',
-    email: 'estudiante@bienestar.edu',
-    name: 'Juan Pérez',
-    role: 'student',
-    matricula: '2021001',
-    carrera: 'Ingeniería de Sistemas',
-    createdAt: new Date(),
-  },
-];
+// Nota: el login ahora se realiza vía API; dejamos esta estructura como referencia.
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -50,23 +31,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string, role: 'admin' | 'doctor' | 'student'): Promise<boolean> => {
+  const login = async (
+    email: string,
+    password: string,
+    role: 'admin' | 'doctor' | 'student'
+  ): Promise<LoginResult> => {
     setLoading(true);
-    
-    // Mock authentication - in real app, this would be an API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const foundUser = mockUsers.find(u => u.email === email && u.role === role);
-    
-    if (foundUser && password === '123456') { // Mock password
-      setUser(foundUser);
-      localStorage.setItem('user', JSON.stringify(foundUser));
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: (email && email.includes('@')) ? email.split('@')[0] : email, password, role }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        setLoading(false);
+        return { success: false, message: errorData.message || 'Error de autenticación', failedAttempts: errorData.failedAttempts };
+      }
+
+      const data = await response.json();
+      const apiUser: User = {
+        id: String(data.user.id),
+        email: data.user.email,
+        name: data.user.name,
+        role: data.user.role,
+        createdAt: new Date(data.user.createdAt),
+      };
+
+      setUser(apiUser);
+      localStorage.setItem('user', JSON.stringify(apiUser));
       setLoading(false);
-      return true;
+      return { success: true, failedAttempts: data.failedAttempts };
+    } catch (err) {
+      setLoading(false);
+      return { success: false, message: 'Error de red' };
     }
-    
-    setLoading(false);
-    return false;
   };
 
   const logout = () => {

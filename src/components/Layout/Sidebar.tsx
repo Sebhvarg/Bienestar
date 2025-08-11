@@ -9,7 +9,9 @@ import {
   Award,
   FileText,
   Settings,
-  LogOut
+  LogOut,
+  icons,
+  User
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -21,7 +23,10 @@ interface SidebarProps {
 const menuItems = {
   admin: [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
+    { id: 'admins', label: 'Administradores', icon: User},
     { id: 'students', label: 'Gestión de Estudiantes', icon: Users },
+    { id: 'doctors', label: 'Gestión de Médicos', icon: Stethoscope },
+    { id: 'tasks', label: 'Tareas Pendientes', icon: Calendar },
     { id: 'activities', label: 'Gestión de Actividades', icon: Calendar },
     { id: 'scholarships', label: 'Becas y Servicios', icon: Award },
     { id: 'reports', label: 'Reportes y Estadísticas', icon: BarChart3 },

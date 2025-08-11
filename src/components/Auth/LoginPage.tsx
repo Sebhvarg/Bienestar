@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Facebook, Linkedin, Youtube, Instagram } from 'lucide-react';
+import { Eye, EyeOff, Facebook, Linkedin, Youtube, Instagram, User, Stethoscope, GraduationCap } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function LoginPage() {
@@ -7,19 +7,34 @@ export default function LoginPage() {
     email: '',
     password: '',
     rememberMe: false,
+    failedAttempts: 0,
+    success: false,
+    message: '',
+    role: '',
+    id: '',
+    createdAt: '',
+    lastLogin: '',
+    status: '',
+    attempts: 0,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'admin' | 'doctor' | 'student'>('student');
   const [error, setError] = useState('');
+  const [failedAttempts, setFailedAttempts] = useState<number | null>(null);
   const { login, loading } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    const success = await login(formData.email, formData.password, selectedRole);
-    if (!success) {
-      setError('Credenciales inválidas. Use las credenciales de demostración.');
+    const result = await login(formData.email, formData.password, selectedRole);
+    if (!result.success) {
+      setError('Credenciales incorrectas');
+      if (typeof result.failedAttempts === 'number') {
+        setFailedAttempts(result.failedAttempts);
+      }
+    } else {
+      setFailedAttempts(result.failedAttempts ?? 0);
     }
   };
 
@@ -29,16 +44,17 @@ export default function LoginPage() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+    if (error) setError('');
   };
 
   const getDemoCredentials = () => {
     switch (selectedRole) {
       case 'admin':
-        return { email: 'admin@bienestar.edu', password: '123456' };
+        return { email: 'admin', password: 'admin123' };
       case 'doctor':
-        return { email: 'doctor@bienestar.edu', password: '123456' };
+        return { email: 'medico1', password: 'medico123' };
       case 'student':
-        return { email: 'estudiante@bienestar.edu', password: '123456' };
+        return { email: 'estudiante1', password: 'estudiante123' };
       default:
         return { email: '', password: '' };
     }
@@ -96,9 +112,12 @@ export default function LoginPage() {
                           : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                       }`}
                     >
-                      Estudiante
+                      <div className="flex items-center">
+                      <GraduationCap className="w-4 h-4 mr-2" /> Estudiante
+                      </div>
                     </button>
                     <button
+                      
                       type="button"
                       onClick={() => setSelectedRole('admin')}
                       className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-colors ${
@@ -107,7 +126,9 @@ export default function LoginPage() {
                           : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                       }`}
                     >
-                      Administrativo
+                      <div className="flex items-center">
+                      <User className="w-4 h-4 mr-2" /> Administrativo
+                      </div>
                     </button>
                     <button
                       type="button"
@@ -118,7 +139,9 @@ export default function LoginPage() {
                           : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                       }`}
                     >
-                      Médico
+                      <div className="flex items-center">
+                      <Stethoscope className="w-4 h-4 mr-2" /> Médico
+                      </div>
                     </button>
                   </div>
                 </div>
@@ -137,24 +160,34 @@ export default function LoginPage() {
 
               {/* Right Section - Login Form */}
               <div className="lg:w-1/2 bg-white/90 p-12 flex items-center justify-center">
+              {/* Login Form */}
                 <div className="w-full max-w-md">
+                  {/* Mostrar el rol seleccionado */}
+                  <div className="text-center mb-6">
+                    <span className="inline-block px-3 py-1 text-sm font-medium rounded-full bg-teal-100 text-teal-800">
+                      Usted esta ingresando como:
+                      { ' ' + selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}
+                    </span>
+                  </div>
                   <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                        Usuario
-                      </label>
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">Usuario</label>
+                    <div className="flex items-center space-x-2">
                       <input
-                        type="email"
+                        type="text"
                         id="email"
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
-                        placeholder="correo@ejemplo.com"
+                        className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
+                        placeholder=""
                         required
                       />
+                      <p className="text-sm text-gray-500 mt-1 whitespace-nowrap">
+                        @espol.edu.ec
+                        </p>
                     </div>
-
+                    </div>
                     <div>
                       <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                         Contraseña
@@ -202,6 +235,12 @@ export default function LoginPage() {
                     {error && (
                       <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                         {error}
+                      </div>
+                    )}
+
+                    {typeof failedAttempts === 'number' && (
+                      <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-lg text-sm">
+                        Intentos fallidos: {failedAttempts}
                       </div>
                     )}
 
