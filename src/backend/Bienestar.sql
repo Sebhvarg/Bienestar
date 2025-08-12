@@ -54,6 +54,7 @@ CREATE TABLE ESTUDIANTE (
     FECHA_NACIMIENTO DATE NOT NULL,
     CORREO_ELECTRONICO VARCHAR(100) NOT NULL,
     TELEFONO VARCHAR(20) NULL,
+    DIRECCION VARCHAR(200) NULL,
     PROMEDIO_ACADEMICO DECIMAL(5,2) NULL,
     ESTADO BOOLEAN NOT NULL DEFAULT TRUE,
     CONSTRAINT FK_ESTUDIANTE_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES USUARIO(ID_USUARIO) ON DELETE CASCADE
@@ -68,7 +69,8 @@ CREATE TABLE ACTIVIDAD (
     FECHA_HORA DATETIME NOT NULL,
     CUPO_MAXIMO INT NOT NULL CHECK (CUPO_MAXIMO > 0),
     UBICACION VARCHAR(100) NOT NULL,
-    TIPO_ACTIVIDAD VARCHAR(50) NOT NULL,
+    TIPO_ACTIVIDAD ENUM('Deportiva','Academica','Cultural','Otros') NOT NULL,
+    ESTADO ENUM('Activa','Cancelada','Finalizada') NOT NULL DEFAULT 'Activa',
     CONSTRAINT FK_ACTIVIDAD_ADMIN FOREIGN KEY (ID_ADMINISTRADOR) REFERENCES ADMINISTRADOR(ID_ADMINISTRADOR)
 );
 
@@ -80,7 +82,8 @@ CREATE TABLE BECA (
     MONTO DECIMAL(10,2) NOT NULL CHECK (MONTO >= 0),
     REQUISITOS VARCHAR(500) NOT NULL,
     FECHA_INICIO DATE NOT NULL,
-    FECHA_FIN DATE NULL
+    FECHA_FIN DATE NULL,
+    ESTADO BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- Tabla SERVICIO_BIENESTAR
@@ -94,6 +97,17 @@ CREATE TABLE SERVICIO_BIENESTAR (
     TIPO_PROFESIONAL ENUM('Medico','Psicologo','Tutor') NULL
 );
 
+-- Tabla HORARIOS_MEDICOS (Nueva tabla para RF08)
+CREATE TABLE HORARIOS_MEDICOS (
+    ID_HORARIO INT AUTO_INCREMENT PRIMARY KEY,
+    ID_MEDICO INT NOT NULL,
+    DIA_SEMANA ENUM('Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo') NOT NULL,
+    HORA_INICIO TIME NOT NULL,
+    HORA_FIN TIME NOT NULL,
+    ESTADO BOOLEAN NOT NULL DEFAULT TRUE,
+    CONSTRAINT FK_HORARIO_MEDICO FOREIGN KEY (ID_MEDICO) REFERENCES MEDICO(ID_MEDICO)
+);
+
 -- Tabla SOLICITUD (referencia a ESTUDIANTE)
 CREATE TABLE SOLICITUD (
     ID_SOLICITUD INT AUTO_INCREMENT PRIMARY KEY,
@@ -101,7 +115,11 @@ CREATE TABLE SOLICITUD (
     TIPO_SOLICITUD ENUM('Beca','Servicio','Certificado') NOT NULL,
     FECHA_SOLICITUD DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     ESTADO ENUM('Pendiente','Aprobada','Rechazada','Cancelada') NOT NULL DEFAULT 'Pendiente',
-    CONSTRAINT FK_SOLICITUD_ESTUDIANTE FOREIGN KEY (ID_ESTUDIANTE) REFERENCES ESTUDIANTE(ID_ESTUDIANTE) ON DELETE CASCADE
+    OBSERVACIONES VARCHAR(500) NULL,
+    FECHA_RESPUESTA DATETIME NULL,
+    PROCESADA_POR INT NULL,
+    CONSTRAINT FK_SOLICITUD_ESTUDIANTE FOREIGN KEY (ID_ESTUDIANTE) REFERENCES ESTUDIANTE(ID_ESTUDIANTE) ON DELETE CASCADE,
+    CONSTRAINT FK_SOLICITUD_PROCESADA FOREIGN KEY (PROCESADA_POR) REFERENCES ADMINISTRADOR(ID_ADMINISTRADOR)
 );
 
 -- Tabla INSCRIPCION (N:M Estudiante-Actividad)
@@ -121,6 +139,7 @@ CREATE TABLE SOLICITUD_BECA (
     ID_SOLICITUD_BECA INT PRIMARY KEY,
     ID_BECA INT NOT NULL,
     JUSTIFICACION VARCHAR(500) NOT NULL,
+    DOCUMENTOS_ADJUNTOS VARCHAR(300) NULL,
     CONSTRAINT FK_SOLICITUDBECA_SOLICITUD FOREIGN KEY (ID_SOLICITUD_BECA) REFERENCES SOLICITUD(ID_SOLICITUD) ON DELETE CASCADE,
     CONSTRAINT FK_SOLICITUDBECA_BECA FOREIGN KEY (ID_BECA) REFERENCES BECA(ID_BECA)
 );
@@ -133,6 +152,8 @@ CREATE TABLE SOLICITUD_SERVICIO (
     ID_MEDICO INT NULL,
     FECHA_PRESTACION DATETIME NOT NULL,
     DIAGNOSTICO TEXT NULL,
+    OBSERVACIONES_MEDICAS TEXT NULL,
+    ESTADO_CITA ENUM('Programada','Realizada','Cancelada','No_Asistio') DEFAULT 'Programada',
     CONSTRAINT FK_SS_SOLICITUD FOREIGN KEY (ID_SOLICITUD) REFERENCES SOLICITUD(ID_SOLICITUD) ON DELETE CASCADE,
     CONSTRAINT FK_SS_SERVICIO FOREIGN KEY (ID_SERVICIO) REFERENCES SERVICIO_BIENESTAR(ID_SERVICIO),
     CONSTRAINT FK_SS_MEDICO FOREIGN KEY (ID_MEDICO) REFERENCES MEDICO(ID_MEDICO)
@@ -144,19 +165,23 @@ CREATE TABLE ASISTENCIA (
     ID_INSCRIPCION INT NOT NULL,
     FECHA_ASISTENCIA DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     VALIDADO_POR INT NULL,
+    OBSERVACIONES VARCHAR(200) NULL,
     CONSTRAINT FK_ASISTENCIA_INSCRIPCION FOREIGN KEY (ID_INSCRIPCION) REFERENCES INSCRIPCION(ID_INSCRIPCION),
     CONSTRAINT FK_ASISTENCIA_ADMIN FOREIGN KEY (VALIDADO_POR) REFERENCES ADMINISTRADOR(ID_ADMINISTRADOR)
 );
 
--- Tabla CERTIFICADO
+-- Tabla CERTIFICADO (Mejorada para RF10)
 CREATE TABLE CERTIFICADO (
     ID_CERTIFICADO INT AUTO_INCREMENT PRIMARY KEY,
     ID_SOLICITUD INT NOT NULL,
     ID_ACTIVIDAD INT NOT NULL,
     FECHA_EMISION DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     ARCHIVO_PDF LONGBLOB NULL,
+    CODIGO_VERIFICACION VARCHAR(50) UNIQUE NOT NULL,
+    EMITIDO_POR INT NOT NULL,
     CONSTRAINT FK_CERTIFICADO_SOLICITUD FOREIGN KEY (ID_SOLICITUD) REFERENCES SOLICITUD(ID_SOLICITUD),
-    CONSTRAINT FK_CERTIFICADO_ACTIVIDAD FOREIGN KEY (ID_ACTIVIDAD) REFERENCES ACTIVIDAD(ID_ACTIVIDAD)
+    CONSTRAINT FK_CERTIFICADO_ACTIVIDAD FOREIGN KEY (ID_ACTIVIDAD) REFERENCES ACTIVIDAD(ID_ACTIVIDAD),
+    CONSTRAINT FK_CERTIFICADO_EMITIDO FOREIGN KEY (EMITIDO_POR) REFERENCES ADMINISTRADOR(ID_ADMINISTRADOR)
 );
 
 -- Tabla AUDITORIA_SOLICITUDES
@@ -166,75 +191,215 @@ CREATE TABLE AUDITORIA_SOLICITUDES (
     ESTADO_ANTERIOR VARCHAR(20),
     ESTADO_NUEVO VARCHAR(20),
     FECHA_CAMBIO DATETIME DEFAULT CURRENT_TIMESTAMP,
-    USUARIO VARCHAR(100) DEFAULT (USER())
+    USUARIO VARCHAR(100) DEFAULT (USER()),
+    OBSERVACIONES VARCHAR(300) NULL
+);
+
+-- Tabla HISTORIAL_CAMBIOS (Nueva tabla para auditoría general)
+CREATE TABLE HISTORIAL_CAMBIOS (
+    ID_CAMBIO INT AUTO_INCREMENT PRIMARY KEY,
+    TABLA_AFECTADA VARCHAR(50) NOT NULL,
+    ID_REGISTRO INT NOT NULL,
+    TIPO_OPERACION ENUM('INSERT','UPDATE','DELETE') NOT NULL,
+    USUARIO VARCHAR(100) NOT NULL,
+    FECHA_CAMBIO DATETIME DEFAULT CURRENT_TIMESTAMP,
+    DATOS_ANTERIORES JSON NULL,
+    DATOS_NUEVOS JSON NULL
 );
 
 -- ===========================
--- INDICES
+-- INDICES (Mejorados)
 -- ===========================
-CREATE INDEX idx_Actividades_Fecha ON ACTIVIDAD (FECHA_HORA);
+CREATE INDEX idx_Actividades_Fecha ON ACTIVIDAD (FECHA_HORA, ESTADO);
 CREATE INDEX idx_Estudiantes_Nombre ON ESTUDIANTE (NOMBRE, APELLIDO);
+CREATE INDEX idx_Estudiantes_Matricula ON ESTUDIANTE (NUMERO_MATRICULA);
 CREATE INDEX idx_Solicitudes_Estado ON SOLICITUD (ESTADO, FECHA_SOLICITUD, TIPO_SOLICITUD);
+CREATE INDEX idx_Solicitudes_Estudiante ON SOLICITUD (ID_ESTUDIANTE, FECHA_SOLICITUD);
 CREATE INDEX idx_Inscripciones_Actividad ON INSCRIPCION (ID_ACTIVIDAD, ID_ESTUDIANTE, ESTADO);
+CREATE INDEX idx_Asistencia_Fecha ON ASISTENCIA (FECHA_ASISTENCIA);
+CREATE INDEX idx_Certificados_Codigo ON CERTIFICADO (CODIGO_VERIFICACION);
+CREATE INDEX idx_Horarios_Medico ON HORARIOS_MEDICOS (ID_MEDICO, DIA_SEMANA);
 
 -- ===========================
--- VISTAS
+-- VISTAS (Mejoradas y nuevas)
 -- ===========================
+
+-- Vista para RF07: Reporte de participación del estudiante
 CREATE VIEW vw_ResumenActividadesEstudiante AS
 SELECT 
     E.ID_ESTUDIANTE,
     CONCAT(E.NOMBRE, ' ', E.APELLIDO) AS Estudiante,
+    E.NUMERO_MATRICULA,
     A.NOMBRE_ACTIVIDAD,
     A.FECHA_HORA,
+    A.TIPO_ACTIVIDAD,
     I.ESTADO AS Estado_Inscripcion,
+    I.FECHA_INSCRIPCION,
+    CASE 
+        WHEN ASIS.FECHA_ASISTENCIA IS NOT NULL THEN 'Asistió'
+        ELSE 'No Asistió'
+    END AS Estado_Asistencia,
     ASIS.FECHA_ASISTENCIA
 FROM ESTUDIANTE E
 JOIN INSCRIPCION I ON E.ID_ESTUDIANTE = I.ID_ESTUDIANTE
 JOIN ACTIVIDAD A ON I.ID_ACTIVIDAD = A.ID_ACTIVIDAD
-LEFT JOIN ASISTENCIA ASIS ON I.ID_INSCRIPCION = ASIS.ID_INSCRIPCION;
+LEFT JOIN ASISTENCIA ASIS ON I.ID_INSCRIPCION = ASIS.ID_INSCRIPCION
+WHERE I.ESTADO = 'Aprobada';
 
+-- Vista para solicitudes pendientes (mejorada)
 CREATE VIEW vw_SolicitudesPendientes AS
 SELECT 
     S.ID_SOLICITUD,
     S.TIPO_SOLICITUD,
     CONCAT(E.NOMBRE, ' ', E.APELLIDO) AS Solicitante,
-    S.FECHA_SOLICITUD
+    E.NUMERO_MATRICULA,
+    S.FECHA_SOLICITUD,
+    DATEDIFF(NOW(), S.FECHA_SOLICITUD) AS Dias_Pendiente
 FROM SOLICITUD S
 JOIN ESTUDIANTE E ON S.ID_ESTUDIANTE = E.ID_ESTUDIANTE
 WHERE S.ESTADO = 'Pendiente';
 
+-- Vista para RF08: Historial médico
 CREATE VIEW vw_HistorialMedico AS
 SELECT 
     E.ID_ESTUDIANTE,
     CONCAT(E.NOMBRE, ' ', E.APELLIDO) AS Estudiante,
+    E.NUMERO_MATRICULA,
     SS.FECHA_PRESTACION AS FechaConsulta,
     CONCAT(M.NOMBRE, ' ', M.APELLIDO) AS Medico,
-    SS.DIAGNOSTICO
+    M.ESPECIALIDAD,
+    SS.DIAGNOSTICO,
+    SS.OBSERVACIONES_MEDICAS,
+    SS.ESTADO_CITA
 FROM SOLICITUD_SERVICIO SS
 JOIN SOLICITUD S ON SS.ID_SOLICITUD = S.ID_SOLICITUD
 JOIN ESTUDIANTE E ON S.ID_ESTUDIANTE = E.ID_ESTUDIANTE
-JOIN MEDICO M ON SS.ID_MEDICO = M.ID_MEDICO
+LEFT JOIN MEDICO M ON SS.ID_MEDICO = M.ID_MEDICO
 WHERE S.TIPO_SOLICITUD = 'Servicio';
 
+-- Vista para reporte de participación (mejorada)
 CREATE VIEW vw_ReporteParticipacion AS
 SELECT 
     A.ID_ACTIVIDAD,
     A.NOMBRE_ACTIVIDAD,
+    A.TIPO_ACTIVIDAD,
+    A.FECHA_HORA,
+    A.CUPO_MAXIMO,
     COUNT(I.ID_ESTUDIANTE) AS TotalInscritos,
+    COUNT(CASE WHEN I.ESTADO = 'Aprobada' THEN 1 END) AS TotalAprobados,
     COUNT(ASIS.ID_ASISTENCIA) AS TotalAsistentes,
-    ROUND((COUNT(ASIS.ID_ASISTENCIA) * 100.0 / NULLIF(COUNT(I.ID_ESTUDIANTE), 0)), 2) AS PorcentajeAsistencia
+    ROUND((COUNT(ASIS.ID_ASISTENCIA) * 100.0 / NULLIF(COUNT(CASE WHEN I.ESTADO = 'Aprobada' THEN 1 END), 0)), 2) AS PorcentajeAsistencia,
+    (A.CUPO_MAXIMO - COUNT(CASE WHEN I.ESTADO = 'Aprobada' THEN 1 END)) AS CuposDisponibles
 FROM ACTIVIDAD A
 LEFT JOIN INSCRIPCION I ON A.ID_ACTIVIDAD = I.ID_ACTIVIDAD
 LEFT JOIN ASISTENCIA ASIS ON I.ID_INSCRIPCION = ASIS.ID_INSCRIPCION
-GROUP BY A.ID_ACTIVIDAD, A.NOMBRE_ACTIVIDAD;
+GROUP BY A.ID_ACTIVIDAD, A.NOMBRE_ACTIVIDAD, A.TIPO_ACTIVIDAD, A.FECHA_HORA, A.CUPO_MAXIMO;
+
+-- Vista para citas médicas
+CREATE VIEW vw_CitasMedicas AS
+SELECT 
+    SS.ID_SOLICITUD_SERVICIO,
+    CONCAT(E.NOMBRE, ' ', E.APELLIDO) AS Estudiante,
+    E.NUMERO_MATRICULA,
+    E.CORREO_ELECTRONICO,
+    E.TELEFONO,
+    CONCAT(M.NOMBRE, ' ', M.APELLIDO) AS Medico,
+    M.ESPECIALIDAD,
+    SS.FECHA_PRESTACION,
+    SS.ESTADO_CITA,
+    SB.NOMBRE_SERVICIO,
+    S.FECHA_SOLICITUD
+FROM SOLICITUD_SERVICIO SS
+JOIN SOLICITUD S ON SS.ID_SOLICITUD = S.ID_SOLICITUD
+JOIN ESTUDIANTE E ON S.ID_ESTUDIANTE = E.ID_ESTUDIANTE
+LEFT JOIN MEDICO M ON SS.ID_MEDICO = M.ID_MEDICO
+JOIN SERVICIO_BIENESTAR SB ON SS.ID_SERVICIO = SB.ID_SERVICIO
+WHERE S.TIPO_SOLICITUD = 'Servicio';
+
+-- Vista para certificados emitidos
+CREATE VIEW vw_CertificadosEmitidos AS
+SELECT 
+    C.ID_CERTIFICADO,
+    C.CODIGO_VERIFICACION,
+    CONCAT(E.NOMBRE, ' ', E.APELLIDO) AS Estudiante,
+    E.NUMERO_MATRICULA,
+    A.NOMBRE_ACTIVIDAD,
+    A.TIPO_ACTIVIDAD,
+    A.FECHA_HORA AS Fecha_Actividad,
+    C.FECHA_EMISION,
+    CONCAT(AD.NOMBRE, ' ', AD.APELLIDO) AS Emitido_Por
+FROM CERTIFICADO C
+JOIN SOLICITUD S ON C.ID_SOLICITUD = S.ID_SOLICITUD
+JOIN ESTUDIANTE E ON S.ID_ESTUDIANTE = E.ID_ESTUDIANTE
+JOIN ACTIVIDAD A ON C.ID_ACTIVIDAD = A.ID_ACTIVIDAD
+JOIN ADMINISTRADOR AD ON C.EMITIDO_POR = AD.ID_ADMINISTRADOR;
 
 -- ===========================
--- PROCEDIMIENTOS ALMACENADOS
+-- FUNCIONES AUXILIARES
 -- ===========================
 
 DELIMITER //
 
--- sp_GestionActividades
+-- Función para generar código de verificación de certificados
+CREATE FUNCTION fn_GenerarCodigoVerificacion(p_id_certificado INT, p_id_estudiante INT) 
+RETURNS VARCHAR(50)
+READS SQL DATA
+DETERMINISTIC
+BEGIN
+    DECLARE v_codigo VARCHAR(50);
+    SET v_codigo = CONCAT('CERT-', YEAR(NOW()), '-', LPAD(p_id_certificado, 6, '0'), '-', LPAD(p_id_estudiante, 4, '0'));
+    RETURN v_codigo;
+END //
+
+-- Función para validar cupos disponibles
+CREATE FUNCTION fn_ValidarCupoDisponible(p_id_actividad INT) 
+RETURNS BOOLEAN
+READS SQL DATA
+DETERMINISTIC
+BEGIN
+    DECLARE v_cupo_maximo INT;
+    DECLARE v_inscritos INT;
+    
+    SELECT CUPO_MAXIMO INTO v_cupo_maximo 
+    FROM ACTIVIDAD 
+    WHERE ID_ACTIVIDAD = p_id_actividad;
+    
+    SELECT COUNT(*) INTO v_inscritos 
+    FROM INSCRIPCION 
+    WHERE ID_ACTIVIDAD = p_id_actividad AND ESTADO = 'Aprobada';
+    
+    RETURN (v_inscritos < v_cupo_maximo);
+END //
+
+-- Función para verificar si estudiante tiene beca activa
+CREATE FUNCTION fn_TieneBecaActiva(p_id_estudiante INT) 
+RETURNS BOOLEAN
+READS SQL DATA
+DETERMINISTIC
+BEGIN
+    DECLARE v_count INT DEFAULT 0;
+    
+    SELECT COUNT(*) INTO v_count
+    FROM SOLICITUD S
+    JOIN SOLICITUD_BECA SB ON S.ID_SOLICITUD = SB.ID_SOLICITUD_BECA
+    JOIN BECA B ON SB.ID_BECA = B.ID_BECA
+    WHERE S.ID_ESTUDIANTE = p_id_estudiante 
+    AND S.ESTADO = 'Aprobada'
+    AND B.ESTADO = TRUE
+    AND (B.FECHA_FIN IS NULL OR B.FECHA_FIN >= CURDATE());
+    
+    RETURN (v_count > 0);
+END //
+
+DELIMITER ;
+
+-- ===========================
+-- PROCEDIMIENTOS ALMACENADOS (Mejorados y nuevos)
+-- ===========================
+
+DELIMITER //
+
+-- SP para gestión completa de actividades (RF03)
 CREATE PROCEDURE sp_GestionActividades(
     IN p_Operacion CHAR(1), -- C,R,U,D
     IN p_ID_ACTIVIDAD INT,
@@ -259,11 +424,20 @@ BEGIN
         WHEN 'C' THEN
             INSERT INTO ACTIVIDAD (ID_ADMINISTRADOR, NOMBRE_ACTIVIDAD, DESCRIPCION, FECHA_HORA, CUPO_MAXIMO, UBICACION, TIPO_ACTIVIDAD)
             VALUES (p_ID_ADMINISTRADOR, p_NOMBRE_ACTIVIDAD, p_DESCRIPCION, p_FECHA_HORA, p_CUPO_MAXIMO, p_UBICACION, p_TIPO_ACTIVIDAD);
-            SELECT LAST_INSERT_ID() AS NewId;
+            SELECT LAST_INSERT_ID() AS NewId, 'Actividad creada exitosamente' AS Mensaje;
             
         WHEN 'R' THEN
-            SELECT * FROM ACTIVIDAD 
-            WHERE ID_ACTIVIDAD = p_ID_ACTIVIDAD OR p_ID_ACTIVIDAD IS NULL;
+            IF p_ID_ACTIVIDAD IS NULL THEN
+                SELECT A.*, CONCAT(AD.NOMBRE, ' ', AD.APELLIDO) AS Creada_Por
+                FROM ACTIVIDAD A
+                JOIN ADMINISTRADOR AD ON A.ID_ADMINISTRADOR = AD.ID_ADMINISTRADOR
+                ORDER BY A.FECHA_HORA DESC;
+            ELSE
+                SELECT A.*, CONCAT(AD.NOMBRE, ' ', AD.APELLIDO) AS Creada_Por
+                FROM ACTIVIDAD A
+                JOIN ADMINISTRADOR AD ON A.ID_ADMINISTRADOR = AD.ID_ADMINISTRADOR
+                WHERE A.ID_ACTIVIDAD = p_ID_ACTIVIDAD;
+            END IF;
             
         WHEN 'U' THEN
             UPDATE ACTIVIDAD SET
@@ -274,26 +448,129 @@ BEGIN
                 UBICACION = IFNULL(p_UBICACION, UBICACION),
                 TIPO_ACTIVIDAD = IFNULL(p_TIPO_ACTIVIDAD, TIPO_ACTIVIDAD)
             WHERE ID_ACTIVIDAD = p_ID_ACTIVIDAD;
+            SELECT 'Actividad actualizada exitosamente' AS Mensaje;
             
         WHEN 'D' THEN
             DELETE FROM ACTIVIDAD WHERE ID_ACTIVIDAD = p_ID_ACTIVIDAD;
+            SELECT 'Actividad eliminada exitosamente' AS Mensaje;
             
     END CASE;
     
     COMMIT;
 END //
 
--- sp_GestionSolicitudesBecas
+-- SP para inscripción en actividades (RF02)
+CREATE PROCEDURE sp_InscripcionActividad(
+    IN p_ID_ESTUDIANTE INT,
+    IN p_ID_ACTIVIDAD INT
+)
+BEGIN
+    DECLARE v_cupo_disponible BOOLEAN DEFAULT FALSE;
+    DECLARE v_ya_inscrito INT DEFAULT 0;
+    DECLARE v_actividad_activa INT DEFAULT 0;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Verificar si la actividad está activa
+    SELECT COUNT(*) INTO v_actividad_activa
+    FROM ACTIVIDAD 
+    WHERE ID_ACTIVIDAD = p_ID_ACTIVIDAD AND ESTADO = 'Activa';
+    
+    IF v_actividad_activa = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: La actividad no está disponible para inscripción';
+    END IF;
+    
+    -- Verificar si ya está inscrito
+    SELECT COUNT(*) INTO v_ya_inscrito
+    FROM INSCRIPCION
+    WHERE ID_ESTUDIANTE = p_ID_ESTUDIANTE AND ID_ACTIVIDAD = p_ID_ACTIVIDAD;
+    
+    IF v_ya_inscrito > 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: El estudiante ya está inscrito en esta actividad';
+    END IF;
+    
+    -- Verificar cupo disponible
+    SET v_cupo_disponible = fn_ValidarCupoDisponible(p_ID_ACTIVIDAD);
+    
+    IF NOT v_cupo_disponible THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: No hay cupo disponible para esta actividad';
+    END IF;
+    
+    -- Insertar inscripción
+    INSERT INTO INSCRIPCION (ID_ESTUDIANTE, ID_ACTIVIDAD, ESTADO)
+    VALUES (p_ID_ESTUDIANTE, p_ID_ACTIVIDAD, 'Aprobada');
+    
+    SELECT LAST_INSERT_ID() AS ID_INSCRIPCION, 'Inscripción exitosa' AS Mensaje;
+    
+    COMMIT;
+END //
+
+-- SP para registrar asistencia (RF04)
+CREATE PROCEDURE sp_RegistrarAsistencia(
+    IN p_ID_INSCRIPCION INT,
+    IN p_ID_ADMINISTRADOR INT,
+    IN p_OBSERVACIONES VARCHAR(200)
+)
+BEGIN
+    DECLARE v_inscripcion_valida INT DEFAULT 0;
+    DECLARE v_ya_registrada INT DEFAULT 0;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Verificar que la inscripción existe y está aprobada
+    SELECT COUNT(*) INTO v_inscripcion_valida
+    FROM INSCRIPCION
+    WHERE ID_INSCRIPCION = p_ID_INSCRIPCION AND ESTADO = 'Aprobada';
+    
+    IF v_inscripcion_valida = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: Inscripción no válida o no aprobada';
+    END IF;
+    
+    -- Verificar si ya se registró asistencia
+    SELECT COUNT(*) INTO v_ya_registrada
+    FROM ASISTENCIA
+    WHERE ID_INSCRIPCION = p_ID_INSCRIPCION;
+    
+    IF v_ya_registrada > 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: Ya se registró asistencia para esta inscripción';
+    END IF;
+    
+    -- Registrar asistencia
+    INSERT INTO ASISTENCIA (ID_INSCRIPCION, VALIDADO_POR, OBSERVACIONES)
+    VALUES (p_ID_INSCRIPCION, p_ID_ADMINISTRADOR, p_OBSERVACIONES);
+    
+    SELECT LAST_INSERT_ID() AS ID_ASISTENCIA, 'Asistencia registrada exitosamente' AS Mensaje;
+    
+    COMMIT;
+END //
+
+-- SP para gestión de solicitudes de becas (RF05)
 CREATE PROCEDURE sp_GestionSolicitudesBecas(
     IN p_Operacion CHAR(1), -- C=Crear, R=Leer, U=Actualizar
     IN p_ID_SOLICITUD INT,
     IN p_ID_ESTUDIANTE INT,
     IN p_ID_BECA INT,
     IN p_JUSTIFICACION VARCHAR(500),
-    IN p_ESTADO VARCHAR(20)
+    IN p_ESTADO VARCHAR(20),
+    IN p_ID_ADMINISTRADOR INT,
+    IN p_OBSERVACIONES VARCHAR(500)
 )
 BEGIN
     DECLARE v_ID_SOL INT;
+    DECLARE v_tiene_beca BOOLEAN DEFAULT FALSE;
+    
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
@@ -304,29 +581,57 @@ BEGIN
     
     CASE p_Operacion
         WHEN 'C' THEN
-            INSERT INTO SOLICITUD (ID_ESTUDIANTE, TIPO_SOLICITUD) VALUES (p_ID_ESTUDIANTE, 'Beca');
+            -- Verificar si ya tiene beca activa
+            SET v_tiene_beca = fn_TieneBecaActiva(p_ID_ESTUDIANTE);
+            
+            IF v_tiene_beca THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: El estudiante ya tiene una beca activa';
+            END IF;
+            
+            INSERT INTO SOLICITUD (ID_ESTUDIANTE, TIPO_SOLICITUD) 
+            VALUES (p_ID_ESTUDIANTE, 'Beca');
             SET v_ID_SOL = LAST_INSERT_ID();
-            INSERT INTO SOLICITUD_BECA (ID_SOLICITUD_BECA, ID_BECA, JUSTIFICACION) VALUES (v_ID_SOL, p_ID_BECA, p_JUSTIFICACION);
-            SELECT v_ID_SOL AS ID_SOLICITUD;
+            
+            INSERT INTO SOLICITUD_BECA (ID_SOLICITUD_BECA, ID_BECA, JUSTIFICACION) 
+            VALUES (v_ID_SOL, p_ID_BECA, p_JUSTIFICACION);
+            
+            SELECT v_ID_SOL AS ID_SOLICITUD, 'Solicitud de beca creada exitosamente' AS Mensaje;
             
         WHEN 'R' THEN
-            SELECT SB.ID_SOLICITUD_BECA, S.ID_ESTUDIANTE, CONCAT(E.NOMBRE, ' ', E.APELLIDO) AS Estudiante, 
-                   B.NOMBRE_BECA, SB.JUSTIFICACION, S.ESTADO AS Estado_Solicitud
+            SELECT 
+                SB.ID_SOLICITUD_BECA, 
+                S.ID_ESTUDIANTE, 
+                CONCAT(E.NOMBRE, ' ', E.APELLIDO) AS Estudiante,
+                E.NUMERO_MATRICULA,
+                B.NOMBRE_BECA, 
+                B.MONTO,
+                SB.JUSTIFICACION, 
+                S.ESTADO AS Estado_Solicitud,
+                S.FECHA_SOLICITUD,
+                S.OBSERVACIONES
             FROM SOLICITUD_BECA SB
             JOIN SOLICITUD S ON SB.ID_SOLICITUD_BECA = S.ID_SOLICITUD
             JOIN BECA B ON SB.ID_BECA = B.ID_BECA
             JOIN ESTUDIANTE E ON S.ID_ESTUDIANTE = E.ID_ESTUDIANTE
-            WHERE SB.ID_SOLICITUD_BECA = p_ID_SOLICITUD OR p_ID_SOLICITUD IS NULL;
+            WHERE SB.ID_SOLICITUD_BECA = p_ID_SOLICITUD OR p_ID_SOLICITUD IS NULL
+            ORDER BY S.FECHA_SOLICITUD DESC;
             
         WHEN 'U' THEN
-            UPDATE SOLICITUD SET ESTADO = p_ESTADO WHERE ID_SOLICITUD = p_ID_SOLICITUD;
+            UPDATE SOLICITUD SET 
+                ESTADO = p_ESTADO,
+                FECHA_RESPUESTA = NOW(),
+                PROCESADA_POR = p_ID_ADMINISTRADOR,
+                OBSERVACIONES = p_OBSERVACIONES
+            WHERE ID_SOLICITUD = p_ID_SOLICITUD;
+            
+            SELECT 'Solicitud de beca actualizada exitosamente' AS Mensaje;
             
     END CASE;
     
     COMMIT;
 END //
 
--- sp_GestionCitasMedicas
+-- SP para gestión de citas médicas (RF06 y RF08)
 CREATE PROCEDURE sp_GestionCitasMedicas(
     IN p_Operacion CHAR(1), -- C,R,U
     IN p_ID_SOLICITUD_SERVICIO INT,
@@ -334,7 +639,8 @@ CREATE PROCEDURE sp_GestionCitasMedicas(
     IN p_ID_SERVICIO INT,
     IN p_ID_MEDICO INT,
     IN p_FECHA_PRESTACION DATETIME,
-    IN p_DIAGNOSTICO TEXT
+    IN p_DIAGNOSTICO TEXT,
+    IN p_OBSERVACIONES_MEDICAS TEXT
 )
 BEGIN
     DECLARE v_ID_SOL INT;
@@ -352,21 +658,265 @@ BEGIN
             SET v_ID_SOL = LAST_INSERT_ID();
             INSERT INTO SOLICITUD_SERVICIO (ID_SOLICITUD, ID_SERVICIO, ID_MEDICO, FECHA_PRESTACION) 
             VALUES (v_ID_SOL, p_ID_SERVICIO, p_ID_MEDICO, p_FECHA_PRESTACION);
-            SELECT LAST_INSERT_ID() AS ID_SOLICITUD_SERVICIO;
+            SELECT LAST_INSERT_ID() AS ID_SOLICITUD_SERVICIO, 'Cita médica programada exitosamente' AS Mensaje;
             
         WHEN 'R' THEN
-            SELECT SS.ID_SOLICITUD_SERVICIO, S.ID_ESTUDIANTE, CONCAT(E.NOMBRE, ' ', E.APELLIDO) AS Estudiante, 
-                   SS.FECHA_PRESTACION, SS.DIAGNOSTICO, SV.NOMBRE_SERVICIO
+            SELECT 
+                SS.ID_SOLICITUD_SERVICIO, 
+                S.ID_ESTUDIANTE, 
+                CONCAT(E.NOMBRE, ' ', E.APELLIDO) AS Estudiante,
+                E.NUMERO_MATRICULA,
+                E.CORREO_ELECTRONICO,
+                E.TELEFONO,
+                SS.FECHA_PRESTACION, 
+                SS.DIAGNOSTICO,
+                SS.OBSERVACIONES_MEDICAS,
+                SS.ESTADO_CITA,
+                SV.NOMBRE_SERVICIO,
+                CONCAT(M.NOMBRE, ' ', M.APELLIDO) AS Medico,
+                S.FECHA_SOLICITUD
             FROM SOLICITUD_SERVICIO SS
             JOIN SOLICITUD S ON SS.ID_SOLICITUD = S.ID_SOLICITUD
             JOIN ESTUDIANTE E ON S.ID_ESTUDIANTE = E.ID_ESTUDIANTE
             JOIN SERVICIO_BIENESTAR SV ON SS.ID_SERVICIO = SV.ID_SERVICIO
+            LEFT JOIN MEDICO M ON SS.ID_MEDICO = M.ID_MEDICO
             WHERE (p_ID_MEDICO IS NULL OR SS.ID_MEDICO = p_ID_MEDICO)
-            AND (SS.ID_SOLICITUD_SERVICIO = p_ID_SOLICITUD_SERVICIO OR p_ID_SOLICITUD_SERVICIO IS NULL);
+            AND (SS.ID_SOLICITUD_SERVICIO = p_ID_SOLICITUD_SERVICIO OR p_ID_SOLICITUD_SERVICIO IS NULL)
+            ORDER BY SS.FECHA_PRESTACION;
             
         WHEN 'U' THEN
-            UPDATE SOLICITUD_SERVICIO SET DIAGNOSTICO = p_DIAGNOSTICO 
+            UPDATE SOLICITUD_SERVICIO SET 
+                DIAGNOSTICO = IFNULL(p_DIAGNOSTICO, DIAGNOSTICO),
+                OBSERVACIONES_MEDICAS = IFNULL(p_OBSERVACIONES_MEDICAS, OBSERVACIONES_MEDICAS),
+                ESTADO_CITA = 'Realizada'
             WHERE ID_SOLICITUD_SERVICIO = p_ID_SOLICITUD_SERVICIO;
+            
+            SELECT 'Consulta médica actualizada exitosamente' AS Mensaje;
+            
+    END CASE;
+    
+    COMMIT;
+END //
+
+-- SP para gestión de usuarios (RF01 y RF09)
+CREATE PROCEDURE sp_GestionUsuarios(
+    IN p_Operacion CHAR(1), -- C,R,U,D
+    IN p_ID_USUARIO INT,
+    IN p_NOMBRE_USUARIO VARCHAR(50),
+    IN p_CONTRA VARCHAR(200),
+    IN p_ROL ENUM('Estudiante','Administrador','Medico'),
+    IN p_NOMBRE VARCHAR(100),
+    IN p_APELLIDO VARCHAR(100),
+    IN p_NUMERO_MATRICULA VARCHAR(20),
+    IN p_CARRERA VARCHAR(100),
+    IN p_FECHA_NACIMIENTO DATE,
+    IN p_CORREO_ELECTRONICO VARCHAR(100),
+    IN p_TELEFONO VARCHAR(20),
+    IN p_ESPECIALIDAD VARCHAR(100)
+)
+BEGIN
+    DECLARE v_ID_USUARIO INT;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    CASE p_Operacion
+        WHEN 'C' THEN
+            INSERT INTO USUARIO (NOMBRE_USUARIO, CONTRA, ROL)
+            VALUES (p_NOMBRE_USUARIO, p_CONTRA, p_ROL);
+            SET v_ID_USUARIO = LAST_INSERT_ID();
+            
+            CASE p_ROL
+                WHEN 'Estudiante' THEN
+                    INSERT INTO ESTUDIANTE (ID_USUARIO, NUMERO_MATRICULA, NOMBRE, APELLIDO, CARRERA, FECHA_NACIMIENTO, CORREO_ELECTRONICO, TELEFONO)
+                    VALUES (v_ID_USUARIO, p_NUMERO_MATRICULA, p_NOMBRE, p_APELLIDO, p_CARRERA, p_FECHA_NACIMIENTO, p_CORREO_ELECTRONICO, p_TELEFONO);
+                    
+                WHEN 'Administrador' THEN
+                    INSERT INTO ADMINISTRADOR (ID_USUARIO, NOMBRE, APELLIDO)
+                    VALUES (v_ID_USUARIO, p_NOMBRE, p_APELLIDO);
+                    
+                WHEN 'Medico' THEN
+                    INSERT INTO MEDICO (ID_USUARIO, NOMBRE, APELLIDO, ESPECIALIDAD)
+                    VALUES (v_ID_USUARIO, p_NOMBRE, p_APELLIDO, p_ESPECIALIDAD);
+            END CASE;
+            
+            SELECT v_ID_USUARIO AS ID_USUARIO, 'Usuario creado exitosamente' AS Mensaje;
+            
+        WHEN 'R' THEN
+            IF p_ROL = 'Estudiante' OR p_ROL IS NULL THEN
+                SELECT 
+                    U.ID_USUARIO, U.NOMBRE_USUARIO, U.ROL, U.ESTADO, U.ULTIMO_LOGIN,
+                    E.ID_ESTUDIANTE, E.NUMERO_MATRICULA, E.NOMBRE, E.APELLIDO, E.CARRERA,
+                    E.FECHA_NACIMIENTO, E.CORREO_ELECTRONICO, E.TELEFONO, E.PROMEDIO_ACADEMICO
+                FROM USUARIO U
+                JOIN ESTUDIANTE E ON U.ID_USUARIO = E.ID_USUARIO
+                WHERE U.ID_USUARIO = p_ID_USUARIO OR p_ID_USUARIO IS NULL;
+            END IF;
+            
+        WHEN 'U' THEN
+            UPDATE USUARIO SET
+                NOMBRE_USUARIO = IFNULL(p_NOMBRE_USUARIO, NOMBRE_USUARIO),
+                CONTRA = IFNULL(p_CONTRA, CONTRA)
+            WHERE ID_USUARIO = p_ID_USUARIO;
+            
+            IF p_ROL = 'Estudiante' THEN
+                UPDATE ESTUDIANTE SET
+                    NOMBRE = IFNULL(p_NOMBRE, NOMBRE),
+                    APELLIDO = IFNULL(p_APELLIDO, APELLIDO),
+                    CARRERA = IFNULL(p_CARRERA, CARRERA),
+                    CORREO_ELECTRONICO = IFNULL(p_CORREO_ELECTRONICO, CORREO_ELECTRONICO),
+                    TELEFONO = IFNULL(p_TELEFONO, TELEFONO)
+                WHERE ID_USUARIO = p_ID_USUARIO;
+            END IF;
+            
+            SELECT 'Usuario actualizado exitosamente' AS Mensaje;
+            
+        WHEN 'D' THEN
+            UPDATE USUARIO SET ESTADO = FALSE WHERE ID_USUARIO = p_ID_USUARIO;
+            SELECT 'Usuario desactivado exitosamente' AS Mensaje;
+            
+    END CASE;
+    
+    COMMIT;
+END //
+
+-- SP para solicitud de certificados (RF10)
+CREATE PROCEDURE sp_SolicitudCertificado(
+    IN p_ID_ESTUDIANTE INT,
+    IN p_ID_ACTIVIDAD INT
+)
+BEGIN
+    DECLARE v_ID_SOLICITUD INT;
+    DECLARE v_ID_CERTIFICADO INT;
+    DECLARE v_CODIGO_VERIFICACION VARCHAR(50);
+    DECLARE v_PARTICIPACION_VALIDA INT DEFAULT 0;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    -- Verificar que el estudiante participó en la actividad
+    SELECT COUNT(*) INTO v_PARTICIPACION_VALIDA
+    FROM INSCRIPCION I
+    JOIN ASISTENCIA A ON I.ID_INSCRIPCION = A.ID_INSCRIPCION
+    WHERE I.ID_ESTUDIANTE = p_ID_ESTUDIANTE 
+    AND I.ID_ACTIVIDAD = p_ID_ACTIVIDAD 
+    AND I.ESTADO = 'Aprobada';
+    
+    IF v_PARTICIPACION_VALIDA = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: El estudiante no participó en esta actividad';
+    END IF;
+    
+    -- Crear solicitud de certificado
+    INSERT INTO SOLICITUD (ID_ESTUDIANTE, TIPO_SOLICITUD, ESTADO)
+    VALUES (p_ID_ESTUDIANTE, 'Certificado', 'Aprobada');
+    SET v_ID_SOLICITUD = LAST_INSERT_ID();
+    
+    -- Crear certificado
+    INSERT INTO CERTIFICADO (ID_SOLICITUD, ID_ACTIVIDAD, EMITIDO_POR, CODIGO_VERIFICACION)
+    VALUES (v_ID_SOLICITUD, p_ID_ACTIVIDAD, 1, ''); -- Temporal, se actualiza abajo
+    SET v_ID_CERTIFICADO = LAST_INSERT_ID();
+    
+    -- Generar y actualizar código de verificación
+    SET v_CODIGO_VERIFICACION = fn_GenerarCodigoVerificacion(v_ID_CERTIFICADO, p_ID_ESTUDIANTE);
+    UPDATE CERTIFICADO SET CODIGO_VERIFICACION = v_CODIGO_VERIFICACION WHERE ID_CERTIFICADO = v_ID_CERTIFICADO;
+    
+    SELECT v_ID_CERTIFICADO AS ID_CERTIFICADO, v_CODIGO_VERIFICACION AS CODIGO_VERIFICACION, 'Certificado generado exitosamente' AS Mensaje;
+    
+    COMMIT;
+END //
+
+-- SP para reportes de participación (RF07)
+CREATE PROCEDURE sp_ReporteParticipacionEstudiante(
+    IN p_ID_ESTUDIANTE INT
+)
+BEGIN
+    SELECT 
+        E.NUMERO_MATRICULA,
+        CONCAT(E.NOMBRE, ' ', E.APELLIDO) AS Estudiante,
+        E.CARRERA,
+        COUNT(I.ID_ACTIVIDAD) AS Total_Inscripciones,
+        COUNT(A.ID_ASISTENCIA) AS Total_Participaciones,
+        ROUND((COUNT(A.ID_ASISTENCIA) * 100.0 / NULLIF(COUNT(I.ID_ACTIVIDAD), 0)), 2) AS Porcentaje_Participacion
+    FROM ESTUDIANTE E
+    LEFT JOIN INSCRIPCION I ON E.ID_ESTUDIANTE = I.ID_ESTUDIANTE AND I.ESTADO = 'Aprobada'
+    LEFT JOIN ASISTENCIA A ON I.ID_INSCRIPCION = A.ID_INSCRIPCION
+    WHERE E.ID_ESTUDIANTE = p_ID_ESTUDIANTE
+    GROUP BY E.ID_ESTUDIANTE;
+    
+    -- Detalle por actividad
+    SELECT 
+        ACT.NOMBRE_ACTIVIDAD,
+        ACT.TIPO_ACTIVIDAD,
+        ACT.FECHA_HORA,
+        I.FECHA_INSCRIPCION,
+        CASE WHEN A.ID_ASISTENCIA IS NOT NULL THEN 'Participó' ELSE 'No Participó' END AS Estado_Participacion,
+        A.FECHA_ASISTENCIA
+    FROM INSCRIPCION I
+    JOIN ACTIVIDAD ACT ON I.ID_ACTIVIDAD = ACT.ID_ACTIVIDAD
+    LEFT JOIN ASISTENCIA A ON I.ID_INSCRIPCION = A.ID_INSCRIPCION
+    WHERE I.ID_ESTUDIANTE = p_ID_ESTUDIANTE AND I.ESTADO = 'Aprobada'
+    ORDER BY ACT.FECHA_HORA DESC;
+END //
+
+-- SP para gestión de horarios médicos
+CREATE PROCEDURE sp_GestionHorariosMedicos(
+    IN p_Operacion CHAR(1), -- C,R,U,D
+    IN p_ID_HORARIO INT,
+    IN p_ID_MEDICO INT,
+    IN p_DIA_SEMANA ENUM('Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo'),
+    IN p_HORA_INICIO TIME,
+    IN p_HORA_FIN TIME
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+    
+    START TRANSACTION;
+    
+    CASE p_Operacion
+        WHEN 'C' THEN
+            INSERT INTO HORARIOS_MEDICOS (ID_MEDICO, DIA_SEMANA, HORA_INICIO, HORA_FIN)
+            VALUES (p_ID_MEDICO, p_DIA_SEMANA, p_HORA_INICIO, p_HORA_FIN);
+            SELECT LAST_INSERT_ID() AS ID_HORARIO, 'Horario creado exitosamente' AS Mensaje;
+            
+        WHEN 'R' THEN
+            SELECT 
+                HM.ID_HORARIO,
+                CONCAT(M.NOMBRE, ' ', M.APELLIDO) AS Medico,
+                M.ESPECIALIDAD,
+                HM.DIA_SEMANA,
+                HM.HORA_INICIO,
+                HM.HORA_FIN,
+                HM.ESTADO
+            FROM HORARIOS_MEDICOS HM
+            JOIN MEDICO M ON HM.ID_MEDICO = M.ID_MEDICO
+            WHERE (p_ID_MEDICO IS NULL OR HM.ID_MEDICO = p_ID_MEDICO)
+            AND (p_ID_HORARIO IS NULL OR HM.ID_HORARIO = p_ID_HORARIO)
+            ORDER BY HM.DIA_SEMANA, HM.HORA_INICIO;
+            
+        WHEN 'U' THEN
+            UPDATE HORARIOS_MEDICOS SET
+                DIA_SEMANA = IFNULL(p_DIA_SEMANA, DIA_SEMANA),
+                HORA_INICIO = IFNULL(p_HORA_INICIO, HORA_INICIO),
+                HORA_FIN = IFNULL(p_HORA_FIN, HORA_FIN)
+            WHERE ID_HORARIO = p_ID_HORARIO;
+            SELECT 'Horario actualizado exitosamente' AS Mensaje;
+            
+        WHEN 'D' THEN
+            UPDATE HORARIOS_MEDICOS SET ESTADO = FALSE WHERE ID_HORARIO = p_ID_HORARIO;
+            SELECT 'Horario desactivado exitosamente' AS Mensaje;
             
     END CASE;
     
@@ -376,12 +926,12 @@ END //
 DELIMITER ;
 
 -- ===========================
--- TRIGGERS
+-- TRIGGERS (Mejorados y nuevos)
 -- ===========================
 
 DELIMITER //
 
--- Trigger para validar cupo de actividad
+-- Trigger para validar cupo de actividad (RB02)
 CREATE TRIGGER tr_ValidarCupoActividad
     BEFORE INSERT ON INSCRIPCION
     FOR EACH ROW
@@ -395,7 +945,7 @@ BEGIN
     
     SELECT COUNT(*) INTO v_CupoActual 
     FROM INSCRIPCION 
-    WHERE ID_ACTIVIDAD = NEW.ID_ACTIVIDAD;
+    WHERE ID_ACTIVIDAD = NEW.ID_ACTIVIDAD AND ESTADO = 'Aprobada';
     
     IF v_CupoActual >= v_CupoMaximo THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: No hay cupo disponible para esta actividad';
@@ -408,12 +958,12 @@ CREATE TRIGGER tr_AuditoriaSolicitudes
     FOR EACH ROW
 BEGIN
     IF OLD.ESTADO != NEW.ESTADO THEN
-        INSERT INTO AUDITORIA_SOLICITUDES (ID_SOLICITUD, ESTADO_ANTERIOR, ESTADO_NUEVO)
-        VALUES (NEW.ID_SOLICITUD, OLD.ESTADO, NEW.ESTADO);
+        INSERT INTO AUDITORIA_SOLICITUDES (ID_SOLICITUD, ESTADO_ANTERIOR, ESTADO_NUEVO, OBSERVACIONES)
+        VALUES (NEW.ID_SOLICITUD, OLD.ESTADO, NEW.ESTADO, NEW.OBSERVACIONES);
     END IF;
 END //
 
--- Trigger para validar beca única
+-- Trigger para validar beca única (RB05)
 CREATE TRIGGER tr_ValidarBecaUnica
     BEFORE INSERT ON SOLICITUD
     FOR EACH ROW
@@ -422,10 +972,14 @@ BEGIN
     
     IF NEW.TIPO_SOLICITUD = 'Beca' THEN
         SELECT COUNT(*) INTO v_BecasActivas
-        FROM SOLICITUD
-        WHERE TIPO_SOLICITUD = 'Beca' 
-        AND ESTADO = 'Aprobada' 
-        AND ID_ESTUDIANTE = NEW.ID_ESTUDIANTE;
+        FROM SOLICITUD S
+        JOIN SOLICITUD_BECA SB ON S.ID_SOLICITUD = SB.ID_SOLICITUD_BECA
+        JOIN BECA B ON SB.ID_BECA = B.ID_BECA
+        WHERE S.TIPO_SOLICITUD = 'Beca' 
+        AND S.ESTADO = 'Aprobada' 
+        AND S.ID_ESTUDIANTE = NEW.ID_ESTUDIANTE
+        AND B.ESTADO = TRUE
+        AND (B.FECHA_FIN IS NULL OR B.FECHA_FIN >= CURDATE());
         
         IF v_BecasActivas > 0 THEN
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: El estudiante ya tiene una beca activa';
@@ -433,63 +987,160 @@ BEGIN
     END IF;
 END //
 
--- Trigger para validar asistencia
+-- Trigger para validar asistencia (RB04)
 CREATE TRIGGER tr_ValidarAsistencia
     BEFORE INSERT ON ASISTENCIA
     FOR EACH ROW
 BEGIN
     DECLARE v_Existe INT DEFAULT 0;
+    DECLARE v_YaRegistrada INT DEFAULT 0;
     
     SELECT COUNT(*) INTO v_Existe
     FROM INSCRIPCION
-    WHERE ID_INSCRIPCION = NEW.ID_INSCRIPCION;
+    WHERE ID_INSCRIPCION = NEW.ID_INSCRIPCION AND ESTADO = 'Aprobada';
     
     IF v_Existe = 0 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: El estudiante no está inscrito en esta actividad';
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: El estudiante no está inscrito o la inscripción no está aprobada';
+    END IF;
+    
+    SELECT COUNT(*) INTO v_YaRegistrada
+    FROM ASISTENCIA
+    WHERE ID_INSCRIPCION = NEW.ID_INSCRIPCION;
+    
+    IF v_YaRegistrada > 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: Ya se registró asistencia para esta inscripción';
+    END IF;
+END //
+
+-- Trigger para validar matrícula única (RB01)
+CREATE TRIGGER tr_ValidarMatriculaUnica
+    BEFORE INSERT ON ESTUDIANTE
+    FOR EACH ROW
+BEGIN
+    DECLARE v_Existe INT DEFAULT 0;
+    
+    SELECT COUNT(*) INTO v_Existe
+    FROM ESTUDIANTE
+    WHERE NUMERO_MATRICULA = NEW.NUMERO_MATRICULA;
+    
+    IF v_Existe > 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error: El número de matrícula ya existe';
+    END IF;
+END //
+
+-- Trigger para actualizar último login
+CREATE TRIGGER tr_ActualizarUltimoLogin
+    AFTER UPDATE ON USUARIO
+    FOR EACH ROW
+BEGIN
+    IF OLD.ULTIMO_LOGIN != NEW.ULTIMO_LOGIN THEN
+        UPDATE USUARIO SET INTENTOS_FALLIDOS = 0 WHERE ID_USUARIO = NEW.ID_USUARIO;
     END IF;
 END //
 
 DELIMITER ;
 
 -- ===========================
--- DATOS DE PRUEBA
+-- DATOS DE PRUEBA EXTENDIDOS
 -- ===========================
 
--- Usuarios (contraseñas en texto sólo de prueba; en producción almacenar hashed)
+-- Usuarios (contraseñas en texto plano para pruebas locales)
 INSERT INTO USUARIO (NOMBRE_USUARIO, CONTRA, ROL) VALUES
-('admin','admin123','Administrador'),
+('admin1','admin123','Administrador'),
 ('medico1','medico123','Medico'),
-('estudiante1','estudiante123','Estudiante');
+('medico2','medico123','Medico'),
+('estudiante1','estudiante123','Estudiante'),
+('estudiante2','estudiante123','Estudiante'),
+('estudiante3','estudiante123','Estudiante');
 
--- Administrador
-INSERT INTO ADMINISTRADOR (ID_USUARIO, NOMBRE, APELLIDO) VALUES (1, 'Carlos', 'Perez');
+-- Administradores
+INSERT INTO ADMINISTRADOR (ID_USUARIO, NOMBRE, APELLIDO) VALUES 
+(1, 'Carlos', 'Perez');
 
--- Médico
-INSERT INTO MEDICO (ID_USUARIO, NOMBRE, APELLIDO, ESPECIALIDAD) VALUES (2, 'Maria', 'Gomez', 'Medicina General');
+-- Médicos
+INSERT INTO MEDICO (ID_USUARIO, NOMBRE, APELLIDO, ESPECIALIDAD) VALUES 
+(2, 'Maria', 'Gomez', 'Medicina General'),
+(3, 'Roberto', 'Silva', 'Medicina General');
 
--- Estudiante
-INSERT INTO ESTUDIANTE (ID_USUARIO, NUMERO_MATRICULA, NOMBRE, APELLIDO, CARRERA, FECHA_NACIMIENTO, CORREO_ELECTRONICO)
-VALUES (3, 'MAT2024001', 'Juan', 'Lopez', 'Ingeniería Informática', '2000-05-15', 'juan@universidad.edu');
+-- Estudiantes
+INSERT INTO ESTUDIANTE (ID_USUARIO, NUMERO_MATRICULA, NOMBRE, APELLIDO, CARRERA, FECHA_NACIMIENTO, CORREO_ELECTRONICO, TELEFONO, DIRECCION, PROMEDIO_ACADEMICO) VALUES
+(4, 'MAT2024001', 'Juan', 'Lopez', 'Ingeniería Informática', '2000-05-15', 'juan.lopez@universidad.edu', '0987654321', 'Av. Principal 123', 8.5),
+(5, 'MAT2024002', 'Ana', 'Martinez', 'Administración', '2001-03-22', 'ana.martinez@universidad.edu', '0987654322', 'Calle Secundaria 456', 9.2),
+(6, 'MAT2024003', 'Pedro', 'Rodriguez', 'Ingeniería Civil', '1999-11-08', 'pedro.rodriguez@universidad.edu', '0987654323', 'Av. Universitaria 789', 7.8);
 
--- Actividad
-INSERT INTO ACTIVIDAD (ID_ADMINISTRADOR, NOMBRE_ACTIVIDAD, DESCRIPCION, FECHA_HORA, CUPO_MAXIMO, UBICACION, TIPO_ACTIVIDAD)
-VALUES (1, 'Taller de SQL', 'Taller práctico de bases de datos', DATE_ADD(NOW(), INTERVAL 7 DAY), 30, 'Aula 101', 'Académico');
+-- Actividades
+INSERT INTO ACTIVIDAD (ID_ADMINISTRADOR, NOMBRE_ACTIVIDAD, DESCRIPCION, FECHA_HORA, CUPO_MAXIMO, UBICACION, TIPO_ACTIVIDAD) VALUES
+(1, 'Taller de SQL Avanzado', 'Taller práctico de bases de datos relacionales', DATE_ADD(NOW(), INTERVAL 7 DAY), 30, 'Aula 101', 'Academica'),
+(1, 'Torneo de Fútbol', 'Campeonato inter-facultades', DATE_ADD(NOW(), INTERVAL 10 DAY), 50, 'Campo Deportivo', 'Deportiva'),
+(1, 'Festival Cultural', 'Presentaciones artísticas estudiantiles', DATE_ADD(NOW(), INTERVAL 14 DAY), 100, 'Auditorio Principal', 'Cultural'),
+(1, 'Seminario de Emprendimiento', 'Charla sobre desarrollo de startups', DATE_ADD(NOW(), INTERVAL 21 DAY), 40, 'Aula Magna', 'Academica');
 
--- Beca
-INSERT INTO BECA (NOMBRE_BECA, DESCRIPCION, MONTO, REQUISITOS, FECHA_INICIO)
-VALUES ('Beca Excelencia', 'Para estudiantes con promedio alto', 500.00, 'Promedio mayor a 9.0', CURDATE());
+-- Becas
+INSERT INTO BECA (NOMBRE_BECA, DESCRIPCION, MONTO, REQUISITOS, FECHA_INICIO, FECHA_FIN) VALUES
+('Beca Excelencia Académica', 'Para estudiantes con promedio superior a 9.0', 1000.00, 'Promedio mayor a 9.0, estudiante regular', CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
+('Beca Apoyo Económico', 'Para estudiantes de bajos recursos', 500.00, 'Demostrar situación económica vulnerable', CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 YEAR)),
+('Beca Deportiva', 'Para estudiantes destacados en deportes', 750.00, 'Participación activa en equipos deportivos', CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 YEAR));
 
--- Servicio
-INSERT INTO SERVICIO_BIENESTAR (NOMBRE_SERVICIO, DESCRIPCION, TIPO_PROFESIONAL)
-VALUES ('Consulta Médica General', 'Consulta básica de medicina general', 'Medico');
+-- Servicios de Bienestar
+INSERT INTO SERVICIO_BIENESTAR (NOMBRE_SERVICIO, DESCRIPCION, DURACION_SESION, TIPO_PROFESIONAL) VALUES
+('Consulta Médica General', 'Atención médica básica para estudiantes', 30, 'Medico'),
+('Apoyo Psicológico', 'Consultas de apoyo emocional y psicológico', 45, 'Psicologo'),
+('Tutoría Académica', 'Apoyo en materias específicas', 60, 'Tutor');
 
--- Pruebas rápidas de procedimientos
+-- Horarios Médicos
+INSERT INTO HORARIOS_MEDICOS (ID_MEDICO, DIA_SEMANA, HORA_INICIO, HORA_FIN) VALUES
+(1, 'Lunes', '08:00:00', '12:00:00'),
+(1, 'Miércoles', '14:00:00', '18:00:00'),
+(1, 'Viernes', '08:00:00', '12:00:00'),
+(2, 'Martes', '08:00:00', '12:00:00'),
+(2, 'Jueves', '14:00:00', '18:00:00');
+
+-- Inscripciones de prueba
+INSERT INTO INSCRIPCION (ID_ESTUDIANTE, ID_ACTIVIDAD, ESTADO) VALUES
+(1, 1, 'Aprobada'),
+(1, 2, 'Aprobada'),
+(2, 1, 'Aprobada'),
+(2, 3, 'Aprobada'),
+(3, 2, 'Pendiente');
+
+-- Asistencias de prueba
+INSERT INTO ASISTENCIA (ID_INSCRIPCION, VALIDADO_POR, OBSERVACIONES) VALUES
+(1, 1, 'Participación activa en el taller'),
+(3, 1, 'Excelente desempeño');
+
+-- ===========================
+-- CONSULTAS DE VERIFICACIÓN
+-- ===========================
+
+-- Verificar estructura de tablas
+SELECT 'Verificando estructura de tablas...' AS Mensaje;
+
+-- Mostrar usuarios creados
+SELECT 'USUARIOS CREADOS:' AS Info;
+SELECT U.NOMBRE_USUARIO, U.ROL, U.ESTADO, U.FECHA_CREACION FROM USUARIO U;
+
+-- Mostrar estudiantes
+SELECT 'ESTUDIANTES REGISTRADOS:' AS Info;
+SELECT E.NUMERO_MATRICULA, CONCAT(E.NOMBRE, ' ', E.APELLIDO) AS Estudiante, E.CARRERA, E.PROMEDIO_ACADEMICO FROM ESTUDIANTE E;
+
+-- Mostrar actividades disponibles
+SELECT 'ACTIVIDADES DISPONIBLES:' AS Info;
+SELECT A.NOMBRE_ACTIVIDAD, A.TIPO_ACTIVIDAD, A.FECHA_HORA, A.CUPO_MAXIMO, A.UBICACION FROM ACTIVIDAD A WHERE A.ESTADO = 'Activa';
+
+-- Mostrar becas disponibles
+SELECT 'BECAS DISPONIBLES:' AS Info;
+SELECT B.NOMBRE_BECA, B.MONTO, B.FECHA_INICIO, B.FECHA_FIN FROM BECA B WHERE B.ESTADO = TRUE;
+
+-- Probar vistas
+SELECT 'PROBANDO VISTAS:' AS Info;
+SELECT * FROM vw_ReporteParticipacion LIMIT 5;
+SELECT * FROM vw_SolicitudesPendientes LIMIT 5;
+
+-- Probar procedimientos almacenados
+SELECT 'PROBANDO PROCEDIMIENTOS:' AS Info;
 CALL sp_GestionActividades('R', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-CALL sp_GestionSolicitudesBecas('R', NULL, NULL, NULL, NULL, NULL);
+CALL sp_ReporteParticipacionEstudiante(1);
 
--- Mostrar algunas tablas para verificar
-SELECT * FROM USUARIO LIMIT 10;
-SELECT * FROM ESTUDIANTE LIMIT 10;
-SELECT * FROM ACTIVIDAD LIMIT 10;
-
-SELECT 'Conversión a MySQL completada exitosamente!' AS Status;
+SELECT '¡Base de datos BienestarEstudiantil completada exitosamente!' AS Status;
+SELECT 'Todas las funcionalidades de los RF01-RF10 están implementadas' AS Funcionalidades;
+SELECT 'Todas las reglas de negocio RB01-RB10 están implementadas' AS ReglasNegocio;

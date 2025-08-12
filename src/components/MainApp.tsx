@@ -15,6 +15,7 @@ export default function MainApp() {
   }
 
   const renderContent = () => {
+    // Dashboard principal
     if (activeSection === 'dashboard') {
       switch (user.role) {
         case 'admin':
@@ -28,7 +29,83 @@ export default function MainApp() {
       }
     }
 
-    // For other sections, show a placeholder for now
+    // Admin: Secciones
+    if (user.role === 'admin') {
+      if (activeSection === 'students') {
+        const GestionEstudiantes = React.lazy(() => import('./Dashboard/Admin/Gestion_Estudiantes.tsx'));
+        return (
+          <React.Suspense fallback={<div>Cargando sección...</div>}>
+            <GestionEstudiantes />
+          </React.Suspense>
+        );
+      }
+      if (activeSection === 'admins') {
+        const GestionAdministradores = React.lazy(() => import('./Dashboard/Admin/Gestion_Administradores'));
+        return (
+          <React.Suspense fallback={<div>Cargando sección...</div>}>
+            <GestionAdministradores />
+          </React.Suspense>
+        );
+      }
+      if (activeSection === 'medics') {
+        const GestionMedicos = React.lazy(() => import('./Dashboard/Admin/Gestion_Medicos'));
+        return (
+          <React.Suspense fallback={<div>Cargando sección...</div>}>
+            <GestionMedicos />
+          </React.Suspense>
+        );
+      }
+      if (activeSection === 'users') {
+        const GestionUsuarios = React.lazy(() => import('./Dashboard/Admin/Gestion_Usuarios'));
+        return (
+          <React.Suspense fallback={<div>Cargando sección...</div>}>
+            <GestionUsuarios />
+          </React.Suspense>
+        );
+      }
+    }
+
+    // Doctor: Secciones
+    if (user.role === 'doctor') {
+      if (activeSection === 'patients') {
+        const GestionPacientes = React.lazy(() => import('./Dashboard/Doctor/Gestion_Pacientes'));
+        return (
+          <React.Suspense fallback={<div>Cargando sección...</div>}>
+            <GestionPacientes />
+          </React.Suspense>
+        );
+      }
+      if (activeSection === 'appointments') {
+        const GestionCitas = React.lazy(() => import('./Dashboard/Doctor/Gestion_Citas'));
+        return (
+          <React.Suspense fallback={<div>Cargando sección...</div>}>
+            <GestionCitas />
+          </React.Suspense>
+        );
+      }
+    }
+
+    // Estudiante: Secciones
+    if (user.role === 'student') {
+      if (activeSection === 'appointments') {
+        const GestionCitasEstudiante = React.lazy(() => import('./Dashboard/Estudiante/Gestion_Citas'));
+        return (
+          <React.Suspense fallback={<div>Cargando sección...</div>}>
+            <GestionCitasEstudiante />
+          </React.Suspense>
+        );
+      }
+      if (activeSection === 'attentions') {
+        const GestionAtencionesEstudiante = React.lazy(() => import('./Dashboard/Estudiante/Gestion_Atenciones'));
+        return (
+          <React.Suspense fallback={<div>Cargando sección...</div>}>
+            <GestionAtencionesEstudiante />
+          </React.Suspense>
+        );
+      }
+    }
+
+    // Placeholder para secciones no implementadas
     return (
       <div className="p-6 flex items-center justify-center min-h-96">
         <div className="text-center">

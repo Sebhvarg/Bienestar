@@ -50,7 +50,7 @@ export default function LoginPage() {
   const getDemoCredentials = () => {
     switch (selectedRole) {
       case 'admin':
-        return { email: 'admin', password: 'admin123' };
+        return { email: 'admin1', password: 'admin123' };
       case 'doctor':
         return { email: 'medico1', password: 'medico123' };
       case 'student':
@@ -172,21 +172,22 @@ export default function LoginPage() {
                   <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
                     <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">Usuario</label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        id="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
-                        placeholder=""
-                        required
-                      />
-                      <p className="text-sm text-gray-500 mt-1 whitespace-nowrap">
-                        @espol.edu.ec
-                        </p>
-                    </div>
+                    <input
+                      type="text"
+                      id="email"
+                      name="email"
+                      value={formData.email.replace(/@.*/, '')}
+                      onChange={e => {
+                        // Solo permitir el nombre de usuario sin dominio
+                        const value = e.target.value.replace(/@.*/, '');
+                        setFormData(prev => ({ ...prev, email: value }));
+                        if (error) setError('');
+                      }}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
+                      placeholder="Ej: admin1, medico1, estudiante1"
+                      autoComplete="username"
+                      required
+                    />
                     </div>
                     <div>
                       <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">

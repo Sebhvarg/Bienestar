@@ -1,3 +1,4 @@
+
 import express from 'express';
 import { pool } from '../../db.js';
 
@@ -30,7 +31,7 @@ router.post('/login', async (req, res) => {
   
       const user = users[0];
   
-      // For demo: plain text password match (SQL seed has plain text). In production, use hashed passwords
+      // Comparar contraseña en texto plano (solo para entorno de pruebas)
       if (String(user.CONTRA) !== String(password)) {
         await pool.query(
           'UPDATE USUARIO SET INTENTOS_FALLIDOS = INTENTOS_FALLIDOS + 1 WHERE NOMBRE_USUARIO = :username',

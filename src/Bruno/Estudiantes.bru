@@ -1,0 +1,15 @@
+meta {
+  name: Estudiantes
+  type: http
+  seq: 5
+}
+
+get {
+  url: http://localhost:4000/api/admin/usuarios
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}
