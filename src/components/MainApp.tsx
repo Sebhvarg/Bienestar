@@ -55,6 +55,14 @@ export default function MainApp() {
           </React.Suspense>
         );
       }
+      if (activeSection === 'scholarships') {
+        const GestionBecas = React.lazy(() => import('./Dashboard/Admin/Gestion_Becas'));
+        return (
+          <React.Suspense fallback={<div>Cargando sección...</div>}>
+            <GestionBecas />
+          </React.Suspense>
+        );
+      }
       if (activeSection === 'users') {
         const GestionUsuarios = React.lazy(() => import('./Dashboard/Admin/Gestion_Usuarios'));
         return (

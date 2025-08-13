@@ -3,13 +3,24 @@ import { pool } from '../../db.js';
 
 const router = express.Router();
 
-// Vista vw_ReporteParticipacion
-router.get('/reporte-participacion', async (req, res) => {
+// Reporte de participación de un estudiante
+router.get('/reporte-participacion/:idEstudiante', async (req, res) => {
+  const idEstudiante = parseInt(req.params.idEstudiante, 10);
+  if (isNaN(idEstudiante)) {
+    return res.status(400).json({ error: 'ID de estudiante inválido' });
+  }
+
   try {
-    const [rows] = await pool.query('SELECT * FROM vw_ReporteParticipacion');
-    res.json({ data: rows });
+    const [results] = await pool.query('CALL sp_ReporteParticipacionEstudiante(?)', [idEstudiante]);
+
+    // El SP devuelve 2 result sets: resultados[0] y resultados[1]
+    const resumen = results[0] || [];
+    const detalle = results[1] || [];
+
+    res.json({ resumen, detalle });
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener reporte de participación', details: error.message });
+    console.error('Error al obtener reporte de participación:', error);
+    res.status(500).json({ error: 'Error al obtener reporte', details: error.message });
   }
 });
 

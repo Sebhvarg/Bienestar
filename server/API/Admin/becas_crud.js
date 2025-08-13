@@ -3,17 +3,58 @@ import { pool } from '../../db.js';
 
 const router = express.Router();
 
-// Gestión de solicitudes de becas (sp_GestionSolicitudesBecas)
-router.post('/becas', async (req, res) => {
-  const { operacion, idSolicitud, idEstudiante, idBeca, justificacion, estado, idAdmin, observaciones } = req.body;
+// Obtener todas las solicitudes de becas
+router.get('/', async (req, res) => {
+  try {
+    const [rows] = await pool.query('CALL sp_GestionSolicitudesBecas(:operacion, NULL, NULL, NULL, NULL, NULL, NULL, NULL)', {
+      operacion: 'R', // Leer todas
+    });
+    res.json({ data: rows[0] || [] });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener solicitudes', details: error.message });
+  }
+});
+
+// Crear nueva solicitud de beca
+router.post('/', async (req, res) => {
+  const { idEstudiante, idBeca, justificacion } = req.body;
   try {
     const [rows] = await pool.query(
-      'CALL sp_GestionSolicitudesBecas(:operacion, :idSolicitud, :idEstudiante, :idBeca, :justificacion, :estado, :idAdmin, :observaciones)',
-      { operacion, idSolicitud, idEstudiante, idBeca, justificacion, estado, idAdmin, observaciones }
+      'CALL sp_GestionSolicitudesBecas(:operacion, NULL, :idEstudiante, :idBeca, :justificacion, NULL, NULL, NULL)',
+      { operacion: 'C', idEstudiante, idBeca, justificacion }
     );
     res.json({ data: rows });
   } catch (error) {
-    res.status(500).json({ error: 'Error al gestionar becas', details: error.message });
+    res.status(500).json({ error: 'Error al crear solicitud', details: error.message });
+  }
+});
+
+// Actualizar solicitud (estado y observaciones por administrador)
+router.put('/:id', async (req, res) => {
+  const idSolicitud = parseInt(req.params.id);
+  const { estado, idAdmin, observaciones } = req.body;
+  try {
+    const [rows] = await pool.query(
+      'CALL sp_GestionSolicitudesBecas(:operacion, :idSolicitud, NULL, NULL, NULL, :estado, :idAdmin, :observaciones)',
+      { operacion: 'U', idSolicitud, estado, idAdmin, observaciones }
+    );
+    res.json({ data: rows });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar solicitud', details: error.message });
+  }
+});
+
+// Eliminar solicitud
+router.delete('/:id', async (req, res) => {
+  const idSolicitud = parseInt(req.params.id);
+  try {
+    const [rows] = await pool.query(
+      'CALL sp_GestionSolicitudesBecas(:operacion, :idSolicitud, NULL, NULL, NULL, NULL, NULL, NULL)',
+      { operacion: 'D', idSolicitud }
+    );
+    res.json({ data: rows });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al eliminar solicitud', details: error.message });
   }
 });
 
