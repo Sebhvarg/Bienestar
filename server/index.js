@@ -57,7 +57,7 @@ app.use('/api/auth', datos);
 // Admin
 app.use('/api/admin/estudiantes', estudiantesCrud);
 app.use('/api/admin/actividades', actividadesCrud);
-app.use('/api/admin/usuarios', usuariosCrud);
+app.use('/api/admin/usuario', usuariosCrud);
 app.use('/api/admin/asistencia', asistenciaCrud);
 app.use('/api/admin/becas', becasCrud);
 app.use('/api/admin/certificados', certificadosCrud);

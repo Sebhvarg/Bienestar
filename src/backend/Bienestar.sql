@@ -712,7 +712,9 @@ CREATE PROCEDURE sp_GestionUsuarios(
     IN p_FECHA_NACIMIENTO DATE,
     IN p_CORREO_ELECTRONICO VARCHAR(100),
     IN p_TELEFONO VARCHAR(20),
-    IN p_ESPECIALIDAD VARCHAR(100)
+    IN p_ESPECIALIDAD VARCHAR(100),
+    IN p_PROMEDIO_ACADEMICO DECIMAL(4,2), -- Nuevo
+    IN p_ESTADO BOOLEAN -- Nuevo
 )
 BEGIN
     DECLARE v_ID_USUARIO INT;
@@ -726,14 +728,14 @@ BEGIN
     
     CASE p_Operacion
         WHEN 'C' THEN
-            INSERT INTO USUARIO (NOMBRE_USUARIO, CONTRA, ROL)
-            VALUES (p_NOMBRE_USUARIO, p_CONTRA, p_ROL);
+            INSERT INTO USUARIO (NOMBRE_USUARIO, CONTRA, ROL, ESTADO)
+            VALUES (p_NOMBRE_USUARIO, p_CONTRA, p_ROL, p_ESTADO);
             SET v_ID_USUARIO = LAST_INSERT_ID();
             
             CASE p_ROL
                 WHEN 'Estudiante' THEN
-                    INSERT INTO ESTUDIANTE (ID_USUARIO, NUMERO_MATRICULA, NOMBRE, APELLIDO, CARRERA, FECHA_NACIMIENTO, CORREO_ELECTRONICO, TELEFONO)
-                    VALUES (v_ID_USUARIO, p_NUMERO_MATRICULA, p_NOMBRE, p_APELLIDO, p_CARRERA, p_FECHA_NACIMIENTO, p_CORREO_ELECTRONICO, p_TELEFONO);
+                    INSERT INTO ESTUDIANTE (ID_USUARIO, NUMERO_MATRICULA, NOMBRE, APELLIDO, CARRERA, FECHA_NACIMIENTO, CORREO_ELECTRONICO, TELEFONO, PROMEDIO_ACADEMICO)
+                    VALUES (v_ID_USUARIO, p_NUMERO_MATRICULA, p_NOMBRE, p_APELLIDO, p_CARRERA, p_FECHA_NACIMIENTO, p_CORREO_ELECTRONICO, p_TELEFONO, p_PROMEDIO_ACADEMICO);
                     
                 WHEN 'Administrador' THEN
                     INSERT INTO ADMINISTRADOR (ID_USUARIO, NOMBRE, APELLIDO)
@@ -747,20 +749,49 @@ BEGIN
             SELECT v_ID_USUARIO AS ID_USUARIO, 'Usuario creado exitosamente' AS Mensaje;
             
         WHEN 'R' THEN
-            IF p_ROL = 'Estudiante' OR p_ROL IS NULL THEN
-                SELECT 
-                    U.ID_USUARIO, U.NOMBRE_USUARIO, U.ROL, U.ESTADO, U.ULTIMO_LOGIN,
-                    E.ID_ESTUDIANTE, E.NUMERO_MATRICULA, E.NOMBRE, E.APELLIDO, E.CARRERA,
-                    E.FECHA_NACIMIENTO, E.CORREO_ELECTRONICO, E.TELEFONO, E.PROMEDIO_ACADEMICO
-                FROM USUARIO U
-                JOIN ESTUDIANTE E ON U.ID_USUARIO = E.ID_USUARIO
-                WHERE U.ID_USUARIO = p_ID_USUARIO OR p_ID_USUARIO IS NULL;
-            END IF;
+    -- Estudiantes
+    IF p_ROL = 'Estudiante' OR p_ROL IS NULL THEN
+        SELECT 
+            U.ID_USUARIO, U.NOMBRE_USUARIO, U.ROL, U.ESTADO, U.ULTIMO_LOGIN,
+            E.ID_ESTUDIANTE, E.NUMERO_MATRICULA, E.NOMBRE, E.APELLIDO, E.CARRERA,
+            E.FECHA_NACIMIENTO, E.CORREO_ELECTRONICO, E.TELEFONO, E.PROMEDIO_ACADEMICO
+        FROM USUARIO U
+        JOIN ESTUDIANTE E ON U.ID_USUARIO = E.ID_USUARIO
+        WHERE (U.ID_USUARIO = p_ID_USUARIO OR p_ID_USUARIO IS NULL)
+          AND U.ESTADO = 1;
+
+    END IF;
+
+    -- Administradores
+    IF p_ROL = 'Administrador' OR p_ROL IS NULL THEN
+        SELECT 
+            U.ID_USUARIO, U.NOMBRE_USUARIO, U.ROL, U.ESTADO, U.ULTIMO_LOGIN,
+            A.ID_ADMINISTRADOR, A.NOMBRE, A.APELLIDO
+        FROM USUARIO U
+        JOIN ADMINISTRADOR A ON U.ID_USUARIO = A.ID_USUARIO
+        WHERE (U.ID_USUARIO = p_ID_USUARIO OR p_ID_USUARIO IS NULL)
+          AND U.ESTADO = 1;
+
+    END IF;
+
+    -- Médicos
+    IF p_ROL = 'Medico' OR p_ROL IS NULL THEN
+        SELECT 
+            U.ID_USUARIO, U.NOMBRE_USUARIO, U.ROL, U.ESTADO, U.ULTIMO_LOGIN,
+            M.ID_MEDICO, M.NOMBRE, M.APELLIDO, M.ESPECIALIDAD
+        FROM USUARIO U
+        JOIN MEDICO M ON U.ID_USUARIO = M.ID_USUARIO
+        WHERE (U.ID_USUARIO = p_ID_USUARIO OR p_ID_USUARIO IS NULL)
+          AND U.ESTADO = 1;
+
+    END IF;
+
             
         WHEN 'U' THEN
             UPDATE USUARIO SET
                 NOMBRE_USUARIO = IFNULL(p_NOMBRE_USUARIO, NOMBRE_USUARIO),
-                CONTRA = IFNULL(p_CONTRA, CONTRA)
+                CONTRA = IFNULL(p_CONTRA, CONTRA),
+                ESTADO = IFNULL(p_ESTADO, ESTADO)
             WHERE ID_USUARIO = p_ID_USUARIO;
             
             IF p_ROL = 'Estudiante' THEN
@@ -769,7 +800,8 @@ BEGIN
                     APELLIDO = IFNULL(p_APELLIDO, APELLIDO),
                     CARRERA = IFNULL(p_CARRERA, CARRERA),
                     CORREO_ELECTRONICO = IFNULL(p_CORREO_ELECTRONICO, CORREO_ELECTRONICO),
-                    TELEFONO = IFNULL(p_TELEFONO, TELEFONO)
+                    TELEFONO = IFNULL(p_TELEFONO, TELEFONO),
+                    PROMEDIO_ACADEMICO = IFNULL(p_PROMEDIO_ACADEMICO, PROMEDIO_ACADEMICO)
                 WHERE ID_USUARIO = p_ID_USUARIO;
             END IF;
             
@@ -783,7 +815,6 @@ BEGIN
     
     COMMIT;
 END //
-
 
 -- SP para solicitud de certificados (RF10)
 CREATE PROCEDURE sp_SolicitudCertificado(
@@ -931,106 +962,6 @@ DELIMITER ;
 -- ===========================
 
 DELIMITER //
-
-CREATE PROCEDURE sp_GestionUsuarios(
-    IN p_Operacion CHAR(1), -- C,R,U,D
-    IN p_ID_USUARIO INT,
-    IN p_NOMBRE_USUARIO VARCHAR(50),
-    IN p_CONTRA VARCHAR(200),
-    IN p_ROL ENUM('Estudiante','Administrador','Medico'),
-    IN p_NOMBRE VARCHAR(100),
-    IN p_APELLIDO VARCHAR(100),
-    IN p_NUMERO_MATRICULA VARCHAR(20),
-    IN p_CARRERA VARCHAR(100),
-    IN p_FECHA_NACIMIENTO DATE,
-    IN p_CORREO_ELECTRONICO VARCHAR(100),
-    IN p_TELEFONO VARCHAR(20),
-    IN p_ESPECIALIDAD VARCHAR(100)
-)
-BEGIN
-    DECLARE v_ID_USUARIO INT;
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-        RESIGNAL;
-    END;
-
-    START TRANSACTION;
-
-    CASE p_Operacion
-        WHEN 'C' THEN
-            INSERT INTO USUARIO (NOMBRE_USUARIO, CONTRA, ROL)
-            VALUES (p_NOMBRE_USUARIO, p_CONTRA, p_ROL);
-            SET v_ID_USUARIO = LAST_INSERT_ID();
-
-            CASE p_ROL
-                WHEN 'Estudiante' THEN
-                    INSERT INTO ESTUDIANTE (ID_USUARIO, NUMERO_MATRICULA, NOMBRE, APELLIDO, CARRERA, FECHA_NACIMIENTO, CORREO_ELECTRONICO, TELEFONO)
-                    VALUES (v_ID_USUARIO, p_NUMERO_MATRICULA, p_NOMBRE, p_APELLIDO, p_CARRERA, p_FECHA_NACIMIENTO, p_CORREO_ELECTRONICO, p_TELEFONO);
-
-                WHEN 'Administrador' THEN
-                    INSERT INTO ADMINISTRADOR (ID_USUARIO, NOMBRE, APELLIDO)
-                    VALUES (v_ID_USUARIO, p_NOMBRE, p_APELLIDO);
-
-                WHEN 'Medico' THEN
-                    INSERT INTO MEDICO (ID_USUARIO, NOMBRE, APELLIDO, ESPECIALIDAD)
-                    VALUES (v_ID_USUARIO, p_NOMBRE, p_APELLIDO, p_ESPECIALIDAD);
-            END CASE;
-
-            SELECT v_ID_USUARIO AS ID_USUARIO, 'Usuario creado exitosamente' AS Mensaje;
-
-        WHEN 'R' THEN
-            IF p_ROL = 'Estudiante' OR p_ROL IS NULL THEN
-                SELECT 
-                    U.ID_USUARIO, U.NOMBRE_USUARIO, U.ROL, U.ESTADO, U.ULTIMO_LOGIN,
-                    E.ID_ESTUDIANTE, E.NUMERO_MATRICULA, E.NOMBRE, E.APELLIDO, E.CARRERA,
-                    E.FECHA_NACIMIENTO, E.CORREO_ELECTRONICO, E.TELEFONO, E.PROMEDIO_ACADEMICO
-                FROM USUARIO U
-                JOIN ESTUDIANTE E ON U.ID_USUARIO = E.ID_USUARIO
-                WHERE U.ID_USUARIO = p_ID_USUARIO OR p_ID_USUARIO IS NULL;
-            END IF;
-
-        WHEN 'U' THEN
-            UPDATE USUARIO SET
-                NOMBRE_USUARIO = IFNULL(p_NOMBRE_USUARIO, NOMBRE_USUARIO),
-                CONTRA = IFNULL(p_CONTRA, CONTRA)
-            WHERE ID_USUARIO = p_ID_USUARIO;
-
-            IF p_ROL = 'Estudiante' THEN
-                UPDATE ESTUDIANTE SET
-                    NOMBRE = IFNULL(p_NOMBRE, NOMBRE),
-                    APELLIDO = IFNULL(p_APELLIDO, APELLIDO),
-                    CARRERA = IFNULL(p_CARRERA, CARRERA),
-                    CORREO_ELECTRONICO = IFNULL(p_CORREO_ELECTRONICO, CORREO_ELECTRONICO),
-                    TELEFONO = IFNULL(p_TELEFONO, TELEFONO)
-                WHERE ID_USUARIO = p_ID_USUARIO;
-            END IF;
-
-            SELECT 'Usuario actualizado exitosamente' AS Mensaje;
-
-        WHEN 'D' THEN
-            -- Desactivar usuario
-            UPDATE USUARIO SET ESTADO = FALSE WHERE ID_USUARIO = p_ID_USUARIO;
-
-            -- Desactivar según el rol
-            IF p_ROL = 'Estudiante' THEN
-                UPDATE ESTUDIANTE SET ESTADO = FALSE WHERE ID_USUARIO = p_ID_USUARIO;
-            ELSEIF p_ROL = 'Administrador' THEN
-                UPDATE ADMINISTRADOR SET ESTADO = FALSE WHERE ID_USUARIO = p_ID_USUARIO;
-            ELSEIF p_ROL = 'Medico' THEN
-                UPDATE MEDICO SET ESTADO = FALSE WHERE ID_USUARIO = p_ID_USUARIO;
-            END IF;
-
-            SELECT 'Usuario desactivado exitosamente' AS Mensaje;
-    END CASE;
-
-    COMMIT;
-END //
-
-DELIMITER ;
-
-DELIMITER ;
-
 -- Trigger para validar cupo de actividad (RB02)
 CREATE TRIGGER tr_ValidarCupoActividad
     BEFORE INSERT ON INSCRIPCION

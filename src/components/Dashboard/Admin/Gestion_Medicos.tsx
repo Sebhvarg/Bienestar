@@ -2,12 +2,11 @@ import React, { useEffect, useState } from 'react';
 
 interface Medico {
   ID_MEDICO: number;
+  ID_USUARIO: number;
   NOMBRE: string;
   APELLIDO: string;
-  ID_USUARIO: number;
   NOMBRE_USUARIO: string;
   ESPECIALIDAD?: string;
-  // CONTRA no viene del backend por seguridad, no se debe mostrar
 }
 
 export default function GestionMedicos() {
@@ -20,7 +19,7 @@ export default function GestionMedicos() {
   const fetchMedicos = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:4000/api/admin/usuarios?rol=Medico');
+      const res = await fetch('http://localhost:4000/api/admin/usuario?rol=Medico'); // ← ruta correcta
       const data = await res.json();
       setMedicos((data.data || []).map((m: any) => ({
         ...m,
@@ -47,7 +46,6 @@ export default function GestionMedicos() {
     e.preventDefault();
 
     const payload: any = {
-      operacion: editingId ? 'U' : 'C',
       idUsuario: editingId,
       nombreUsuario: form.NOMBRE_USUARIO || '',
       rol: 'Medico',
@@ -55,24 +53,33 @@ export default function GestionMedicos() {
       apellido: form.APELLIDO || '',
       matricula: '',
       carrera: '',
+      fechaNacimiento: null,
+      correo: '',
+      telefono: '',
       especialidad: form.ESPECIALIDAD || '',
     };
 
-    // Solo enviamos contraseña si se escribió alguna
-    if (form.CONTRA && form.CONTRA.trim() !== '') {
-      payload.contra = form.CONTRA;
+    if (!editingId || form.CONTRA?.trim()) {
+      payload.contra = form.CONTRA || '';
     }
 
     try {
-      const res = await fetch('http://localhost:4000/api/admin/usuarios', {
-        method: editingId ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        editingId
+          ? `http://localhost:4000/api/admin/usuario/${editingId}`
+          : 'http://localhost:4000/api/admin/usuario',
+        {
+          method: editingId ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      );
+
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`Error ${res.status}: ${text}`);
       }
+
       setForm({});
       setEditingId(null);
       setError(null);
@@ -89,7 +96,7 @@ export default function GestionMedicos() {
       APELLIDO: medico.APELLIDO || '',
       NOMBRE_USUARIO: medico.NOMBRE_USUARIO || '',
       ESPECIALIDAD: medico.ESPECIALIDAD || '',
-      CONTRA: '', // Nunca mostramos la contraseña
+      CONTRA: '',
     });
     setEditingId(medico.ID_USUARIO);
   };
@@ -97,10 +104,8 @@ export default function GestionMedicos() {
   const handleDelete = async (idUsuario: number) => {
     if (!window.confirm('¿Eliminar médico?')) return;
     try {
-      const res = await fetch('http://localhost:4000/api/admin/usuarios', {
+      const res = await fetch(`http://localhost:4000/api/admin/usuario/${idUsuario}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operacion: 'D', idUsuario }),
       });
       if (!res.ok) {
         const text = await res.text();
@@ -153,10 +158,10 @@ export default function GestionMedicos() {
           name="CONTRA"
           value={form.CONTRA || ''}
           onChange={handleChange}
-          placeholder={editingId ? "Cambiar contraseña (opcional)" : "Contraseña"}
+          placeholder={editingId ? 'Cambiar contraseña (opcional)' : 'Contraseña'}
           className="border p-2 rounded"
           type="password"
-          required={!editingId} // Obligatorio solo al crear
+          required={!editingId}
           autoComplete="new-password"
         />
         <button

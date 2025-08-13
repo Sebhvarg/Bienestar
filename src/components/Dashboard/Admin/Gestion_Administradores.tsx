@@ -6,26 +6,21 @@ interface Admin {
   APELLIDO: string;
   ID_USUARIO: number;
   NOMBRE_USUARIO: string;
-  fechaNacimiento?: string;
 }
 
 export default function GestionAdministradores() {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<Partial<Admin> & { contra?: string; fechaNacimiento?: string }>({});
+  const [form, setForm] = useState<Partial<Admin> & { contra?: string }>({});
   const [editingId, setEditingId] = useState<number | null>(null);
 
   const fetchAdmins = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:4000/api/admin/usuarios?rol=Administrador');
+      const res = await fetch('http://localhost:4000/api/admin/usuario?rol=Administrador');
       const data = await res.json();
-      setAdmins((data.data || []).map((a: any) => ({
-        ...a,
-        NOMBRE_USUARIO: a.NOMBRE_USUARIO || a.NOMBRE_USUARIO || a.NOMBRE_USUARIO_ADMIN || '',
-        fechaNacimiento: a.fechaNacimiento || '',
-      })));
+      setAdmins(data.data || []);
       setError(null);
     } catch {
       setError('Error al cargar administradores');
@@ -44,47 +39,49 @@ export default function GestionAdministradores() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (editingId === null && editingId !== 0) {
-      // Crear usuario
-    } else if (editingId === null) {
-      setError('ID de usuario inválido para actualizar');
+    if (!form.NOMBRE || !form.APELLIDO || !form.NOMBRE_USUARIO) {
+      setError('Todos los campos son requeridos');
       return;
     }
 
     const payload = {
-      operacion: editingId ? 'U' : 'C',
-      idUsuario: editingId,
-      nombreUsuario: form.NOMBRE_USUARIO || '',
-      contra: form.contra || '',
+      nombreUsuario: form.NOMBRE_USUARIO,
+      contra: form.contra || undefined,
       rol: 'Administrador',
-      nombre: form.NOMBRE || '',
-      apellido: form.APELLIDO || '',
+      nombre: form.NOMBRE,
+      apellido: form.APELLIDO,
       matricula: '',
       carrera: '',
-      fechaNacimiento: form.fechaNacimiento && form.fechaNacimiento.trim() !== '' ? form.fechaNacimiento : null,
+      fechaNacimiento: null,
       correo: '',
       telefono: '',
-      especialidad: ''
+      especialidad: '',
+      estado: true,
     };
 
     try {
-      const res = await fetch('http://localhost:4000/api/admin/usuarios', {
-        method: editingId ? 'PUT' : 'POST',
+      setLoading(true);
+      const url = editingId
+        ? `http://localhost:4000/api/admin/usuario/${editingId}`
+        : 'http://localhost:4000/api/admin/usuario';
+      const method = editingId ? 'PUT' : 'POST';
+      if (editingId && !form.contra) delete payload.contra;
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Error ${res.status}: ${text}`);
-      }
+
+      if (!res.ok) throw new Error('Error al guardar administrador');
       setForm({});
       setEditingId(null);
       setError(null);
       fetchAdmins();
-    } catch (error) {
-      setError('Error al guardar');
-      console.error(error);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -93,8 +90,7 @@ export default function GestionAdministradores() {
       NOMBRE: admin.NOMBRE,
       APELLIDO: admin.APELLIDO,
       NOMBRE_USUARIO: admin.NOMBRE_USUARIO,
-      fechaNacimiento: admin.fechaNacimiento || '',
-      contra: '', // No mostramos la contraseña actual
+      contra: '', // no mostrar contraseña
     });
     setEditingId(admin.ID_USUARIO);
   };
@@ -102,19 +98,16 @@ export default function GestionAdministradores() {
   const handleDelete = async (idUsuario: number) => {
     if (!window.confirm('¿Eliminar administrador?')) return;
     try {
-      const res = await fetch('http://localhost:4000/api/admin/usuarios', {
+      setLoading(true);
+      const res = await fetch(`http://localhost:4000/api/admin/usuario/${idUsuario}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operacion: 'D', idUsuario }),
       });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Error ${res.status}: ${text}`);
-      }
+      if (!res.ok) throw new Error('Error al eliminar administrador');
       fetchAdmins();
-    } catch (error) {
-      setError('Error al eliminar');
-      console.error(error);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -148,36 +141,22 @@ export default function GestionAdministradores() {
           required
         />
         <input
-          name="fechaNacimiento"
-          type="date"
-          value={form.fechaNacimiento || ''}
-          onChange={handleChange}
-          className="border p-2 rounded"
-        />
-        <input
           name="contra"
           value={form.contra || ''}
           onChange={handleChange}
           placeholder="Contraseña"
-          className="border p-2 rounded"
           type="password"
+          className="border p-2 rounded"
           required={!editingId}
           autoComplete="new-password"
         />
-        <button
-          type="submit"
-          className="bg-teal-600 text-white px-4 py-2 rounded"
-        >
+        <button type="submit" className="bg-teal-600 text-white px-4 py-2 rounded">
           {editingId ? 'Actualizar' : 'Agregar'}
         </button>
         {editingId && (
           <button
             type="button"
-            onClick={() => {
-              setForm({});
-              setEditingId(null);
-              setError(null);
-            }}
+            onClick={() => { setForm({}); setEditingId(null); setError(null); }}
             className="ml-2 text-gray-600"
           >
             Cancelar
@@ -196,30 +175,18 @@ export default function GestionAdministradores() {
               <th className="px-4 py-2 border-b">Nombre</th>
               <th className="px-4 py-2 border-b">Apellido</th>
               <th className="px-4 py-2 border-b">Usuario</th>
-              <th className="px-4 py-2 border-b">Fecha Nac.</th>
               <th className="px-4 py-2 border-b">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {admins.map((a) => (
+            {admins.map(a => (
               <tr key={a.ID_ADMINISTRADOR} className="hover:bg-gray-50">
                 <td className="px-4 py-2 border-b">{a.NOMBRE}</td>
                 <td className="px-4 py-2 border-b">{a.APELLIDO}</td>
                 <td className="px-4 py-2 border-b">{a.NOMBRE_USUARIO}</td>
-                <td className="px-4 py-2 border-b">{a.fechaNacimiento || '-'}</td>
                 <td className="px-4 py-2 border-b">
-                  <button
-                    onClick={() => handleEdit(a)}
-                    className="text-blue-600 mr-2"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => handleDelete(a.ID_USUARIO)}
-                    className="text-red-600"
-                  >
-                    Eliminar
-                  </button>
+                  <button onClick={() => handleEdit(a)} className="text-blue-600 mr-2">Editar</button>
+                  <button onClick={() => handleDelete(a.ID_USUARIO)} className="text-red-600">Eliminar</button>
                 </td>
               </tr>
             ))}
