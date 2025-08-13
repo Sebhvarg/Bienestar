@@ -108,7 +108,10 @@ export default function GestionEstudiantes() {
   };
 
   const saveUsuario = async () => {
-    const url = `http://localhost:4000/api/admin/usuario/${editingId}`;
+    const url = editingId
+  ? `http://localhost:4000/api/admin/usuario/${editingId}`
+  : `http://localhost:4000/api/admin/usuario`;
+
     const method = editingId ? 'PUT' : 'POST';
     const payload: any = {
       idUsuario: editingId || undefined,

@@ -113,22 +113,6 @@ export default function MainApp() {
 
     // Estudiante: Secciones
     if (user.role === 'student') {
-      if (activeSection === 'appointments') {
-        const GestionCitasEstudiante = React.lazy(() => import('./Dashboard/Estudiante/Gestion_Citas'));
-        return (
-          <React.Suspense fallback={<div>Cargando sección...</div>}>
-            <GestionCitasEstudiante />
-          </React.Suspense>
-        );
-      }
-      if (activeSection === 'atentions') {
-        const GestionAtencionesEstudiante = React.lazy(() => import('./Dashboard/Estudiante/Gestion_Atenciones.tsx'));
-        return (
-          <React.Suspense fallback={<div>Cargando sección...</div>}>
-            <GestionAtencionesEstudiante />
-          </React.Suspense>
-        );
-      }
       if (activeSection === 'activities') {
         const GestionActividadesEstudiante = React.lazy(() => import('./Dashboard/Estudiante/Gestion_Actividades.tsx'));
         return (

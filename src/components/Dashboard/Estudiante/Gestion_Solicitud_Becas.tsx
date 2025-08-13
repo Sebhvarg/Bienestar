@@ -25,11 +25,7 @@ export default function GestionSolicitudesBecas() {
   const fetchSolicitudes = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:4000/api/estudiante/solicitudes-beca', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operacion: 'R' })
-      });
+      const res = await fetch('http://localhost:4000/api/estudiante/solicitudes-beca');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al cargar solicitudes');
       setSolicitudes(data.data || []);
@@ -50,13 +46,13 @@ export default function GestionSolicitudesBecas() {
 
     try {
       setLoading(true);
-      const res = await fetch('/api/estudiante/solicitudes-beca', {
+      const res = await fetch('http://localhost:4000/api/estudiante/solicitudes-beca', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          operacion: 'C',
-          ID_BECA: becaSeleccionada,
-          JUSTIFICACION: justificacion
+          idEstudiante: 1, // Aquí pondrías el ID del estudiante logueado
+          idBeca: becaSeleccionada,
+          justificacion
         })
       });
       const data = await res.json();
@@ -77,7 +73,6 @@ export default function GestionSolicitudesBecas() {
     fetchSolicitudes();
   }, []);
 
-  // Determinar si hay beca aprobada
   const tieneBecaActiva = solicitudes.some(s => s.Estado_Solicitud === 'Aprobada');
 
   return (
@@ -104,7 +99,6 @@ export default function GestionSolicitudesBecas() {
         </div>
       )}
 
-      {/* Tabla de solicitudes */}
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white border border-gray-200 rounded-lg">
           <thead>
@@ -142,7 +136,6 @@ export default function GestionSolicitudesBecas() {
         </table>
       </div>
 
-      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto">

@@ -7,6 +7,7 @@ interface Medico {
   APELLIDO: string;
   NOMBRE_USUARIO: string;
   ESPECIALIDAD?: string;
+  ESTADO: number;
 }
 
 export default function GestionMedicos() {
@@ -57,6 +58,7 @@ export default function GestionMedicos() {
       correo: '',
       telefono: '',
       especialidad: form.ESPECIALIDAD || '',
+      estado: form.ESTADO || 1,
     };
 
     if (!editingId || form.CONTRA?.trim()) {
@@ -97,6 +99,7 @@ export default function GestionMedicos() {
       NOMBRE_USUARIO: medico.NOMBRE_USUARIO || '',
       ESPECIALIDAD: medico.ESPECIALIDAD || '',
       CONTRA: '',
+      ESTADO: medico.ESTADO || 1,
     });
     setEditingId(medico.ID_USUARIO);
   };

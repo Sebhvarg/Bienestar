@@ -460,12 +460,14 @@ BEGIN
 END //
 
 -- SP para inscripción en actividades (RF02)
+DELIMITER //
+
 CREATE PROCEDURE sp_InscripcionActividad(
     IN p_ID_ESTUDIANTE INT,
     IN p_ID_ACTIVIDAD INT
 )
 BEGIN
-    DECLARE v_cupo_disponible BOOLEAN DEFAULT FALSE;
+    DECLARE v_cupo_disponible TINYINT(1) DEFAULT 0;
     DECLARE v_ya_inscrito INT DEFAULT 0;
     DECLARE v_actividad_activa INT DEFAULT 0;
     

@@ -6,12 +6,15 @@ const router = express.Router();
 // Obtener todas las solicitudes de becas
 router.get('/', async (req, res) => {
   try {
-    const [rows] = await pool.query('CALL sp_GestionSolicitudesBecas(:operacion, NULL, NULL, NULL, NULL, NULL, NULL, NULL)', {
-      operacion: 'R', // Leer todas
-    });
+    const [rows] = await pool.query(
+      'CALL sp_GestionSolicitudesBecas(:operacion, NULL, NULL, NULL, NULL, NULL, NULL, NULL)',
+      { operacion: 'R' }
+    );
 
-    // Extraer la primera fila del resultado de la consulta
-    const solicitudes = (rows[0] || []).map(() => ({
+    // Si el SP devuelve [[...]], tomar la primera capa
+    const resultados = rows[0] || [];
+
+    const solicitudes = resultados.map(s => ({
       ID_SOLICITUD: s.ID_SOLICITUD_BECA,
       ID_ESTUDIANTE: s.ID_ESTUDIANTE,
       ESTUDIANTE: s.Estudiante,
@@ -43,8 +46,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Actualizar solicitud (estado y observaciones por administrador)
-// Eliminar o aprobar solicitud (PUT)
+// Actualizar solicitud
 router.put('/:id', async (req, res) => {
   const idSolicitud = parseInt(req.params.id);
   const { estado, idAdmin, observaciones } = req.body;
@@ -72,6 +74,5 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Error al eliminar solicitud', details: error.message });
   }
 });
-
 
 export default router;

@@ -38,7 +38,6 @@ const menuItems = {
   student: [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'activities', label: 'Actividades', icon: Calendar },
-    { id: 'atentions', label: 'Atenciones', icon: Stethoscope },
     { id: 'scholarships', label: 'Becas y Servicios', icon: Award },
   ],
 };
