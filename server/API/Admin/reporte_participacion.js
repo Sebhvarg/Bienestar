@@ -4,23 +4,26 @@ import { pool } from '../../db.js';
 const router = express.Router();
 
 // Reporte de participación de un estudiante
-router.get('/reporte-participacion/:idEstudiante', async (req, res) => {
-  const idEstudiante = parseInt(req.params.idEstudiante, 10);
+router.get('/:idEstudiante', async (req, res) => {
+  const idEstudiante = parseInt(req.params.idEstudiante);
   if (isNaN(idEstudiante)) {
     return res.status(400).json({ error: 'ID de estudiante inválido' });
   }
 
   try {
-    const [results] = await pool.query('CALL sp_ReporteParticipacionEstudiante(?)', [idEstudiante]);
+    // Llamada al SP
+    const [resultSets] = await pool.query('CALL sp_ReporteParticipacionEstudiante(?)', [idEstudiante]);
 
-    // El SP devuelve 2 result sets: resultados[0] y resultados[1]
-    const resumen = results[0] || [];
-    const detalle = results[1] || [];
+    // resultSets es un array donde:
+    // resultSets[0] -> primer SELECT (resumen)
+    // resultSets[1] -> segundo SELECT (detalle)
+    const resumen = resultSets[0]?.[0] || null;
+    const detalle = resultSets[1] || [];
 
     res.json({ resumen, detalle });
   } catch (error) {
     console.error('Error al obtener reporte de participación:', error);
-    res.status(500).json({ error: 'Error al obtener reporte', details: error.message });
+    res.status(500).json({ error: 'Error al obtener reporte de participación', details: error.message });
   }
 });
 

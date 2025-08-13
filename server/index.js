@@ -17,6 +17,7 @@ import certificadosCrud from './API/Admin/certificados_crud.js';
 import reporteParticipacion from './API/Admin/reporte_participacion.js';
 import solicitudesPendientes from './API/Admin/solicitudes_pendientes.js';
 import certificadosEmitidos from './API/Admin/certificados_emitidos.js';
+import dashboardRoutes from './API/Admin/dashboard.js';
 
 // Doctor
 import citasCrud from './API/Doctor/citas_crud.js';
@@ -28,6 +29,9 @@ import citasMedicas from './API/Doctor/citas_medicas.js';
 import inscripcionActividad from './API/Estudiante/inscripcion_actividad.js';
 import reporteParticipacionEst from './API/Estudiante/reporte_participacion.js';
 import resumenActividades from './API/Estudiante/resumen_actividades.js';
+import solicitudesBecaEst from './API/Estudiante/solicitud_beca.js';
+import solicitudesBeca from './API/Estudiante/solicitudes_beca.js';
+
 
 dotenv.config();
 
@@ -64,6 +68,7 @@ app.use('/api/admin/certificados', certificadosCrud);
 app.use('/api/admin/reporte-participacion', reporteParticipacion);
 app.use('/api/admin/solicitudes-pendientes', solicitudesPendientes);
 app.use('/api/admin/certificados-emitidos', certificadosEmitidos);
+app.use('/api/admin/dashboard', dashboardRoutes);
 
 // Doctor
 app.use('/api/doctor/citas', citasCrud);
@@ -75,6 +80,7 @@ app.use('/api/doctor/citas-medicas', citasMedicas);
 app.use('/api/estudiante/inscripcion-actividad', inscripcionActividad);
 app.use('/api/estudiante/reporte-participacion', reporteParticipacionEst);
 app.use('/api/estudiante/resumen-actividades', resumenActividades);
+app.use('/api/estudiante/solicitudes-beca', solicitudesBeca);
 
 app.listen(port, () => {
   // eslint-disable-next-line no-console

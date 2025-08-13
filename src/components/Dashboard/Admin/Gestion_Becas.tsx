@@ -16,7 +16,7 @@ export default function GestionBecas() {
   const [solicitudes, setSolicitudes] = useState<SolicitudBeca[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<Partial<SolicitudBeca>>({});
+  const [form, setForm] = useState<{ ESTADO: 'Aprobado' | 'Rechazado'; OBSERVACIONES?: string }>({ ESTADO: 'Aprobado' });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -34,97 +34,72 @@ export default function GestionBecas() {
     }
   };
 
-  useEffect(() => {
-    fetchSolicitudes();
-  }, []);
+  useEffect(() => { fetchSolicitudes(); }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const openModal = (solicitud?: SolicitudBeca) => {
-    if (solicitud) {
-      setEditingId(solicitud.ID_SOLICITUD);
-      setForm({
-        ESTADO: solicitud.ESTADO,
-        OBSERVACIONES: solicitud.OBSERVACIONES || '',
-      });
-    } else {
-      setEditingId(null);
-      setForm({});
-    }
+  const openModal = (solicitud: SolicitudBeca) => {
+    setEditingId(solicitud.ID_SOLICITUD);
+    setForm({ ESTADO: 'Aprobado', OBSERVACIONES: solicitud.OBSERVACIONES || '' });
     setShowModal(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingId) return;
     try {
-      const url = editingId
-        ? `http://localhost:4000/api/admin/becas/${editingId}`
-        : 'http://localhost:4000/api/admin/becas';
-      const method = editingId ? 'PUT' : 'POST';
-      const payload = editingId
-        ? { estado: form.ESTADO, idAdmin: 1, observaciones: form.OBSERVACIONES } // idAdmin puede venir de sesión
-        : { idEstudiante: form.ID_ESTUDIANTE, idBeca: form.ID_BECA, justificacion: form.JUSTIFICACION };
-
-      const res = await fetch(url, {
-        method,
+      await fetch(`http://localhost:4000/api/admin/becas/${editingId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ estado: form.ESTADO, idAdmin: 1, observaciones: form.OBSERVACIONES }),
       });
-
-      if (!res.ok) throw new Error('Error al guardar solicitud');
-      setForm({});
-      setEditingId(null);
       setShowModal(false);
       fetchSolicitudes();
-    } catch (err) {
-      setError((err as Error).message);
+    } catch {
+      setError('Error al actualizar solicitud');
     }
   };
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('¿Eliminar solicitud?')) return;
     try {
-      const res = await fetch(`http://localhost:4000/api/admin/becas/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Error al eliminar solicitud');
+      await fetch(`http://localhost:4000/api/admin/becas/${id}`, { method: 'DELETE' });
       fetchSolicitudes();
-    } catch (err) {
-      setError((err as Error).message);
+    } catch {
+      setError('Error al eliminar solicitud');
     }
   };
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Solicitudes de Becas</h1>
-      <button onClick={() => openModal()} className="mb-4 bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700">
-        Nueva Solicitud
-      </button>
 
       {error && <p className="text-red-600 mb-4">{error}</p>}
       {loading ? <p>Cargando...</p> : (
         <table className="min-w-full bg-white border border-gray-200 rounded-lg">
           <thead>
             <tr>
-              <th className="px-4 py-2 border-b">Estudiante</th>
-              <th className="px-4 py-2 border-b">Beca</th>
-              <th className="px-4 py-2 border-b">Justificación</th>
-              <th className="px-4 py-2 border-b">Estado</th>
-              <th className="px-4 py-2 border-b">Observaciones</th>
-              <th className="px-4 py-2 border-b">Acciones</th>
+              <th>Estudiante</th>
+              <th>Beca</th>
+              <th>Justificación</th>
+              <th>Estado</th>
+              <th>Observaciones</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {solicitudes.map(s => (
               <tr key={s.ID_SOLICITUD} className="hover:bg-gray-50">
-                <td className="px-4 py-2 border-b">{s.ESTUDIANTE}</td>
-                <td className="px-4 py-2 border-b">{s.BECA}</td>
-                <td className="px-4 py-2 border-b">{s.JUSTIFICACION}</td>
-                <td className="px-4 py-2 border-b">{s.ESTADO}</td>
-                <td className="px-4 py-2 border-b">{s.OBSERVACIONES || '-'}</td>
-                <td className="px-4 py-2 border-b">
-                  <button onClick={() => openModal(s)} className="text-blue-600 mr-2">Editar</button>
+                <td>{s.ESTUDIANTE}</td>
+                <td>{s.BECA}</td>
+                <td>{s.JUSTIFICACION}</td>
+                <td>{s.ESTADO}</td>
+                <td>{s.OBSERVACIONES || '-'}</td>
+                <td>
+                  <button onClick={() => openModal(s)} className="text-green-600 mr-2">Aprobar/Rechazar</button>
                   <button onClick={() => handleDelete(s.ID_SOLICITUD)} className="text-red-600">Eliminar</button>
                 </td>
               </tr>
@@ -136,67 +111,23 @@ export default function GestionBecas() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md max-h-90vh overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">{editingId ? 'Actualizar Solicitud' : 'Nueva Solicitud'}</h2>
+          <div className="bg-white p-6 rounded-lg w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Actualizar Solicitud</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {!editingId && (
-                <>
-                  <input
-                    name="ID_ESTUDIANTE"
-                    type="number"
-                    value={form.ID_ESTUDIANTE || ''}
-                    onChange={handleChange}
-                    placeholder="ID Estudiante"
-                    className="w-full px-3 py-2 border rounded"
-                    required
-                  />
-                  <input
-                    name="ID_BECA"
-                    type="number"
-                    value={form.ID_BECA || ''}
-                    onChange={handleChange}
-                    placeholder="ID Beca"
-                    className="w-full px-3 py-2 border rounded"
-                    required
-                  />
-                  <textarea
-                    name="JUSTIFICACION"
-                    value={form.JUSTIFICACION || ''}
-                    onChange={handleChange}
-                    placeholder="Justificación"
-                    className="w-full px-3 py-2 border rounded"
-                    required
-                  />
-                </>
-              )}
-
-              {editingId && (
-                <>
-                  <select
-                    name="estado"
-                    value={form.ESTADO || 'Pendiente'}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded"
-                  >
-                    <option value="Pendiente">Pendiente</option>
-                    <option value="Aprobado">Aprobado</option>
-                    <option value="Rechazado">Rechazado</option>
-                  </select>
-                  <textarea
-                    name="observaciones"
-                    value={form.OBSERVACIONES || ''}
-                    onChange={handleChange}
-                    placeholder="Observaciones"
-                    className="w-full px-3 py-2 border rounded"
-                  />
-                </>
-              )}
-
+              <select name="ESTADO" value={form.ESTADO} onChange={handleChange} className="w-full border p-2 rounded">
+                <option value="Aprobado">Aprobado</option>
+                <option value="Rechazado">Rechazado</option>
+              </select>
+              <textarea
+                name="OBSERVACIONES"
+                value={form.OBSERVACIONES}
+                onChange={handleChange}
+                placeholder="Observaciones"
+                className="w-full border p-2 rounded"
+              />
               <div className="flex justify-end space-x-2">
-                <button type="button" onClick={() => { setShowModal(false); setForm({}); setEditingId(null); setError(null); }} className="px-4 py-2 border rounded hover:bg-gray-100">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700">
-                  {editingId ? 'Actualizar' : 'Crear'}
-                </button>
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-teal-600 text-white rounded">Guardar</button>
               </div>
             </form>
           </div>

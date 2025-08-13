@@ -63,6 +63,14 @@ export default function MainApp() {
           </React.Suspense>
         );
       }
+      if (activeSection === 'reports') {
+        const ReporteParticipacion = React.lazy(() => import('./Dashboard/Admin/Reporte_Participacion.tsx'));
+        return (
+          <React.Suspense fallback={<div>Cargando sección...</div>}>
+            <ReporteParticipacion idEstudiante={user.id} />
+          </React.Suspense>
+        );
+      }
       if (activeSection === 'users') {
         const GestionUsuarios = React.lazy(() => import('./Dashboard/Admin/Gestion_Usuarios'));
         return (
@@ -113,11 +121,27 @@ export default function MainApp() {
           </React.Suspense>
         );
       }
-      if (activeSection === 'attentions') {
-        const GestionAtencionesEstudiante = React.lazy(() => import('./Dashboard/Estudiante/Gestion_Atenciones'));
+      if (activeSection === 'atentions') {
+        const GestionAtencionesEstudiante = React.lazy(() => import('./Dashboard/Estudiante/Gestion_Atenciones.tsx'));
         return (
           <React.Suspense fallback={<div>Cargando sección...</div>}>
             <GestionAtencionesEstudiante />
+          </React.Suspense>
+        );
+      }
+      if (activeSection === 'activities') {
+        const GestionActividadesEstudiante = React.lazy(() => import('./Dashboard/Estudiante/Gestion_Actividades.tsx'));
+        return (
+          <React.Suspense fallback={<div>Cargando sección...</div>}>
+            <GestionActividadesEstudiante />
+          </React.Suspense>
+        );
+      }
+      if (activeSection === 'scholarships') {
+        const GestionSolicitudesBecas = React.lazy(() => import('./Dashboard/Estudiante/Gestion_Solicitud_Becas.tsx'));
+        return (
+          <React.Suspense fallback={<div>Cargando sección...</div>}>
+            <GestionSolicitudesBecas />
           </React.Suspense>
         );
       }

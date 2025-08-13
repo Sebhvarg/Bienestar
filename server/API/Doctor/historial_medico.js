@@ -4,7 +4,7 @@ import { pool } from '../../db.js';
 const router = express.Router();
 
 // Vista vw_HistorialMedico
-router.get('/historial-medico', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM vw_HistorialMedico');
     res.json({ data: rows });
