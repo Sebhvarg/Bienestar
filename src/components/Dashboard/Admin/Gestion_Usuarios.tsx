@@ -17,7 +17,7 @@ export default function GestionUsuarios() {
   const fetchUsuarios = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/usuarios');
+      const res = await fetch('/api/admin/usuarios?rol=Todos');
       const data = await res.json();
       setUsuarios(data.data || []);
       setError(null);
@@ -37,10 +37,25 @@ export default function GestionUsuarios() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload = {
+        operacion: editingId ? 'U' : 'C',
+        idUsuario: editingId,
+        nombreUsuario: form.NOMBRE || '',
+        contra: form.NOMBRE || '',
+        rol: form.ROL || '',
+        nombre: form.NOMBRE || '',
+        apellido: form.APELLIDO || '',
+        matricula: '',
+        carrera: '',
+        fechaNacimiento: '',
+        correo: '',
+        telefono: '',
+        especialidad: ''
+      };
       await fetch('/api/admin/usuarios', {
         method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, operacion: editingId ? 'U' : 'C', idUsuario: editingId }),
+        body: JSON.stringify(payload),
       });
       setForm({});
       setEditingId(null);
@@ -51,7 +66,11 @@ export default function GestionUsuarios() {
   };
 
   const handleEdit = (usuario: Usuario) => {
-    setForm(usuario);
+    setForm({
+      NOMBRE: usuario.NOMBRE,
+      APELLIDO: usuario.APELLIDO,
+      ROL: usuario.ROL
+    });
     setEditingId(usuario.ID_USUARIO);
   };
 

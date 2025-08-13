@@ -1,19 +1,172 @@
+// routes/usuarios_crud.js
 import express from 'express';
 import { pool } from '../../db.js';
 
 const router = express.Router();
 
-// CRUD de usuarios (sp_GestionUsuarios)
-router.post('/usuarios', async (req, res) => {
-  const { operacion, idUsuario, nombreUsuario, contra, rol, nombre, apellido, matricula, carrera, fechaNacimiento, correo, telefono, especialidad } = req.body;
+function normalize(val) {
+  return val === undefined ? null : val;
+}
+
+// CREAR usuario
+router.post('/', async (req, res) => {
+  const {
+    idUsuario,
+    nombreUsuario,
+    contra,
+    rol, // 'Administrador', 'Medico' o 'Estudiante'
+    nombre,
+    apellido,
+    matricula,
+    carrera,
+    fechaNacimiento,
+    correo,
+    telefono,
+    especialidad,
+    estado,
+    promedioAcademico
+  } = req.body;
+
   try {
+    console.log('POST - Datos recibidos:', req.body);
+    
+    // Procedimiento almacenado con 13 parámetros
     const [rows] = await pool.query(
-      'CALL sp_GestionUsuarios(:operacion, :idUsuario, :nombreUsuario, :contra, :rol, :nombre, :apellido, :matricula, :carrera, :fechaNacimiento, :correo, :telefono, :especialidad)',
-      { operacion, idUsuario, nombreUsuario, contra, rol, nombre, apellido, matricula, carrera, fechaNacimiento, correo, telefono, especialidad }
+      'CALL sp_GestionUsuarios(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        'C', 
+        normalize(idUsuario),
+        normalize(nombreUsuario),
+        normalize(contra),
+        normalize(rol),
+        normalize(nombre),
+        normalize(apellido),
+        normalize(matricula),
+        normalize(carrera),
+        normalize(fechaNacimiento),
+        normalize(correo),
+        normalize(telefono),
+        normalize(especialidad)
+      ]
     );
-    res.json({ data: rows });
+    
+    console.log('POST - Resultado:', rows);
+    res.json({ data: rows, message: 'Usuario creado exitosamente' });
   } catch (error) {
-    res.status(500).json({ error: 'Error al gestionar usuarios', details: error.message });
+    console.error('Error en POST:', error);
+    res.status(500).json({ error: 'Error al crear usuario', details: error.message });
+  }
+});
+
+// LEER usuarios por rol
+router.get('/', async (req, res) => {
+  const { rol } = req.query;
+  try {
+    console.log('GET - Rol solicitado:', rol);
+    
+    // Procedimiento almacenado con 13 parámetros
+    const [rows] = await pool.query(
+      'CALL sp_GestionUsuarios(?, NULL, NULL, NULL, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)',
+      ['R', normalize(rol)]
+    );
+    
+    console.log('GET - Resultado:', rows);
+    res.json({ data: rows[0] || [] });
+  } catch (error) {
+    console.error('Error en GET:', error);
+    res.status(500).json({ error: 'Error al obtener usuarios', details: error.message });
+  }
+});
+
+// ACTUALIZAR usuario
+router.put('/', async (req, res) => {
+  const {
+    idUsuario,
+    nombreUsuario,
+    contra,
+    rol,
+    nombre,
+    apellido,
+    matricula,
+    carrera,
+    fechaNacimiento,
+    correo,
+    telefono,
+    especialidad,
+    estado,
+    promedioAcademico
+  } = req.body;
+
+  try {
+    console.log('PUT - Datos recibidos:', req.body);
+    
+    if (!idUsuario) {
+      return res.status(400).json({ error: 'ID de usuario requerido para actualización' });
+    }
+
+    // Procedimiento almacenado con 13 parámetros
+    const [rows] = await pool.query(
+      'CALL sp_GestionUsuarios(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        'U', 
+        normalize(idUsuario),
+        normalize(nombreUsuario),
+        normalize(contra),
+        normalize(rol),
+        normalize(nombre),
+        normalize(apellido),
+        normalize(matricula),
+        normalize(carrera),
+        normalize(fechaNacimiento),
+        normalize(correo),
+        normalize(telefono),
+        normalize(especialidad)
+      ]
+    );
+    
+    console.log('PUT - Resultado:', rows);
+    res.json({ data: rows, message: 'Usuario actualizado exitosamente' });
+  } catch (error) {
+    console.error('Error en PUT:', error);
+    res.status(500).json({ error: 'Error al actualizar usuario', details: error.message });
+  }
+});
+
+// ELIMINAR usuario - con parámetro de URL
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    console.log('DELETE - ID recibido:', id);
+    
+    // Procedimiento almacenado con 13 parámetros
+    await pool.query(
+      'CALL sp_GestionUsuarios(?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)',
+      ['D', id]
+    );
+    
+    res.json({ message: 'Usuario eliminado correctamente' });
+  } catch (error) {
+    console.error('Error en DELETE:', error);
+    res.status(500).json({ error: 'Error al eliminar usuario', details: error.message });
+  }
+});
+
+// ELIMINAR usuario - versión alternativa que acepta ID en el body (opcional)
+router.delete('/', async (req, res) => {
+  const { idUsuario } = req.body;
+  try {
+    console.log('DELETE (body) - ID recibido:', idUsuario);
+    
+    // Procedimiento almacenado con 13 parámetros
+    await pool.query(
+      'CALL sp_GestionUsuarios(?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)',
+      ['D', idUsuario]
+    );
+    
+    res.json({ message: 'Usuario eliminado correctamente' });
+  } catch (error) {
+    console.error('Error en DELETE (body):', error);
+    res.status(500).json({ error: 'Error al eliminar usuario', details: error.message });
   }
 });
 

@@ -1,37 +1,27 @@
 import React, { useEffect, useState } from 'react';
 
-interface Estudiante {
-  ID_ESTUDIANTE?: number;
-  NUMERO_MATRICULA: string;
+interface Usuario {
+  ID_USUARIO?: number;
+  NUMERO_MATRICULA?: string;  // Sólo estudiantes
   NOMBRE: string;
   APELLIDO: string;
-  CARRERA: string;
-  FECHA_NACIMIENTO?: string;
+  CARRERA?: string;            // Sólo estudiantes
+  FECHA_NACIMIENTO?: string;   // Sólo estudiantes
+  NOMBRE_USUARIO: string;      // Nombre de usuario
+  CONTRA?: string;             // Contraseña del usuario
   CORREO_ELECTRONICO: string;
   TELEFONO?: string;
-  PROMEDIO_ACADEMICO?: number;
+  PROMEDIO_ACADEMICO?: number; // Sólo estudiantes
   ESTADO: boolean;
-}
-
-interface FormularioEstudiante {
-  NUMERO_MATRICULA: string;
-  NOMBRE: string;
-  APELLIDO: string;
-  CARRERA: string;
-  FECHA_NACIMIENTO: string;
-  CORREO_ELECTRONICO: string;
-  TELEFONO: string;
-  PROMEDIO_ACADEMICO: string;
-  ESTADO: boolean;
+  ROL: 'Estudiante' | 'Administrador' | 'Medico';
 }
 
 export default function GestionEstudiantes() {
-  const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<Estudiante | null>(null);
-  const [formData, setFormData] = useState<FormularioEstudiante>({
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState<Omit<Usuario, 'ID_USUARIO'>>({
     NUMERO_MATRICULA: '',
     NOMBRE: '',
     APELLIDO: '',
@@ -39,210 +29,197 @@ export default function GestionEstudiantes() {
     FECHA_NACIMIENTO: '',
     CORREO_ELECTRONICO: '',
     TELEFONO: '',
-    PROMEDIO_ACADEMICO: '',
-    ESTADO: true
+    CONTRA: '',
+    NOMBRE_USUARIO: '',
+    ESTADO: true,
+    ROL: 'Estudiante',
+    PROMEDIO_ACADEMICO: undefined,
   });
+  const [showModal, setShowModal] = useState(false);
 
-  // Cargar estudiantes
-  const fetchEstudiantes = async () => {
+  // Obtener todos los usuarios y filtrar estudiantes
+  const fetchUsuarios = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/estudiantes');
-      if (!res.ok) throw new Error('Error al cargar estudiantes');
+      const res = await fetch('/api/admin/usuarios?rol=Estudiante');
+      if (!res.ok) throw new Error('Error al cargar usuarios');
       const data = await res.json();
-      // El backend retorna los datos en data[0] (por ser resultado de CALL)
-      const estudiantesArray = Array.isArray(data) ? data : (Array.isArray(data[0]) ? data[0] : []);
-      setEstudiantes(estudiantesArray);
+      const estudiantesFiltrados = Array.isArray(data.data)
+        ? data.data.filter((u: Usuario) => u.ROL === 'Estudiante')
+        : [];
+      setUsuarios(estudiantesFiltrados);
       setError(null);
     } catch (e) {
-      setError('Error al cargar estudiantes: ' + (e as Error).message);
+      setError((e as Error).message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Crear estudiante
-  const createEstudiante = async () => {
-    try {
-      const payload = {
-        numero_matricula: formData.NUMERO_MATRICULA,
-        nombre: formData.NOMBRE,
-        apellido: formData.APELLIDO,
-        carrera: formData.CARRERA,
-        fecha_nacimiento: formData.FECHA_NACIMIENTO ? formData.FECHA_NACIMIENTO.split('T')[0] : null,
-        correo_electronico: formData.CORREO_ELECTRONICO,
-        telefono: formData.TELEFONO || null,
-        promedio_academico: formData.PROMEDIO_ACADEMICO ? parseFloat(formData.PROMEDIO_ACADEMICO) : null,
-        estado: formData.ESTADO
-      };
-
-      console.log('Creando estudiante:', payload);
-
-      const res = await fetch('/api/admin/estudiantes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const responseData = await res.json();
-      console.log('Respuesta del servidor:', responseData);
-
-      if (!res.ok) {
-        throw new Error(responseData.error || 'Error al crear estudiante');
-      }
-      
-      await fetchEstudiantes();
-      resetForm();
-      setShowModal(false);
-      setError(null);
-    } catch (e) {
-      console.error('Error en createEstudiante:', e);
-      setError('Error al crear estudiante: ' + (e as Error).message);
-    }
-  };
-
-  // Actualizar estudiante
-  const updateEstudiante = async () => {
-    if (!editingStudent?.ID_ESTUDIANTE) return;
-
-    try {
-      const payload = {
-        numero_matricula: formData.NUMERO_MATRICULA,
-        nombre: formData.NOMBRE,
-        apellido: formData.APELLIDO,
-        carrera: formData.CARRERA,
-        fecha_nacimiento: formData.FECHA_NACIMIENTO ? formData.FECHA_NACIMIENTO.split('T')[0] : null,
-        correo_electronico: formData.CORREO_ELECTRONICO,
-        telefono: formData.TELEFONO || null,
-        promedio_academico: formData.PROMEDIO_ACADEMICO ? parseFloat(formData.PROMEDIO_ACADEMICO) : null,
-        estado: formData.ESTADO
-      };
-
-      console.log('Actualizando estudiante:', editingStudent.ID_ESTUDIANTE, payload);
-
-      const res = await fetch(`/api/admin/estudiantes/${editingStudent.ID_ESTUDIANTE}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const responseData = await res.json();
-      console.log('Respuesta del servidor:', responseData);
-
-      if (!res.ok) {
-        throw new Error(responseData.error || 'Error al actualizar estudiante');
-      }
-      
-      await fetchEstudiantes();
-      resetForm();
-      setShowModal(false);
-      setError(null);
-    } catch (e) {
-      console.error('Error en updateEstudiante:', e);
-      setError('Error al actualizar estudiante: ' + (e as Error).message);
-    }
-  };
-
-  // Eliminar estudiante
-  const deleteEstudiante = async (id: number) => {
-    if (!confirm('¿Estás seguro de que deseas eliminar este estudiante?')) return;
-
-    try {
-      const res = await fetch(`/api/admin/estudiantes/${id}`, {
-        method: 'DELETE'
-      });
-
-      if (!res.ok) throw new Error('Error al eliminar estudiante');
-      
-      await fetchEstudiantes();
-    } catch (e) {
-      setError('Error al eliminar estudiante: ' + (e as Error).message);
-    }
-  };
-
-  // Resetear formulario
-  const resetForm = () => {
-    setFormData({
-      NUMERO_MATRICULA: '',
-      NOMBRE: '',
-      APELLIDO: '',
-      CARRERA: '',
-      FECHA_NACIMIENTO: '',
-      CORREO_ELECTRONICO: '',
-      TELEFONO: '',
-      PROMEDIO_ACADEMICO: '',
-      ESTADO: true
-    });
-    setEditingStudent(null);
-  };
-
-  // Abrir modal para crear
-  const openCreateModal = () => {
-    resetForm();
-    setShowModal(true);
-  };
-
-  // Abrir modal para editar
-  const openEditModal = (estudiante: Estudiante) => {
-    setEditingStudent(estudiante);
-    // Convertir la fecha a formato YYYY-MM-DD si existe
-    const fechaNacimiento = estudiante.FECHA_NACIMIENTO 
-      ? new Date(estudiante.FECHA_NACIMIENTO).toISOString().split('T')[0]
-      : '';
-    
-    setFormData({
-      NUMERO_MATRICULA: estudiante.NUMERO_MATRICULA,
-      NOMBRE: estudiante.NOMBRE,
-      APELLIDO: estudiante.APELLIDO,
-      CARRERA: estudiante.CARRERA,
-      FECHA_NACIMIENTO: fechaNacimiento,
-      CORREO_ELECTRONICO: estudiante.CORREO_ELECTRONICO,
-      TELEFONO: estudiante.TELEFONO || '',
-      PROMEDIO_ACADEMICO: estudiante.PROMEDIO_ACADEMICO?.toString() || '',
-      ESTADO: estudiante.ESTADO
-    });
-    setShowModal(true);
-  };
-
-  // Manejar cambios en el formulario
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target as HTMLInputElement;
     const checked = (e.target as HTMLInputElement).checked;
-    setFormData(prev => ({
+    setForm(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]:
+        type === 'checkbox'
+          ? checked
+          : name === 'PROMEDIO_ACADEMICO'
+          ? value === ''
+            ? undefined
+            : parseFloat(value)
+          : value,
     }));
   };
 
-  // Manejar envío del formulario
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingStudent) {
-      await updateEstudiante();
+  const openModal = (usuario?: Usuario) => {
+    if (usuario) {
+      setEditingId(usuario.ID_USUARIO ?? null);
+      setForm({
+        NUMERO_MATRICULA: usuario.NUMERO_MATRICULA || '',
+        NOMBRE: usuario.NOMBRE,
+        APELLIDO: usuario.APELLIDO,
+        CARRERA: usuario.CARRERA || '',
+        FECHA_NACIMIENTO: usuario.FECHA_NACIMIENTO
+          ? new Date(usuario.FECHA_NACIMIENTO).toISOString().split('T')[0]
+          : '',
+        CORREO_ELECTRONICO: usuario.CORREO_ELECTRONICO,
+        TELEFONO: usuario.TELEFONO || '',
+        PROMEDIO_ACADEMICO: usuario.PROMEDIO_ACADEMICO,
+        ESTADO: usuario.ESTADO,
+        ROL: 'Estudiante', // fijo porque este componente es solo para estudiantes
+        NOMBRE_USUARIO: usuario.NOMBRE_USUARIO || '',
+        CONTRA: '', // No rellenar contraseña para seguridad
+      });
     } else {
-      await createEstudiante();
+      setEditingId(null);
+      setForm({
+        NUMERO_MATRICULA: '',
+        NOMBRE: '',
+        APELLIDO: '',
+        CARRERA: '',
+        FECHA_NACIMIENTO: '',
+        CORREO_ELECTRONICO: '',
+        TELEFONO: '',
+        PROMEDIO_ACADEMICO: undefined,
+        ESTADO: true,
+        ROL: 'Estudiante',
+        NOMBRE_USUARIO: '',
+        CONTRA: '',
+      });
+    }
+    setShowModal(true);
+    setError(null);
+  };
+
+  // Crear o actualizar usuario (estudiante)
+  const saveUsuario = async () => {
+    const url = '/api/admin/usuarios'; // Usar la misma URL para POST y PUT
+    const method = editingId ? 'PUT' : 'POST';
+
+    // Payload completo con todos los campos necesarios
+    const payload = {
+      idUsuario: editingId || undefined, // Solo enviar si estamos editando
+      nombreUsuario: form.NOMBRE_USUARIO,
+      contra: form.CONTRA || undefined, // Solo para creación
+      rol: 'Estudiante',
+      nombre: form.NOMBRE,
+      apellido: form.APELLIDO,
+      matricula: form.NUMERO_MATRICULA || null,
+      carrera: form.CARRERA || null,
+      fechaNacimiento: form.FECHA_NACIMIENTO || null,
+      correo: form.CORREO_ELECTRONICO,
+      telefono: form.TELEFONO || null,
+      especialidad: null, // Siempre null para estudiantes
+      estado: form.ESTADO,
+      promedioAcademico: form.PROMEDIO_ACADEMICO ?? null,
+    };
+
+    // Para actualización, la contraseña es opcional
+    if (editingId && !form.CONTRA) {
+      delete payload.contra;
+    }
+
+    console.log('Payload enviado:', payload); // Para debugging
+
+    try {
+      setLoading(true);
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Error response:', errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
+        }
+        throw new Error(errorData.error || `Error ${res.status}: ${res.statusText}`);
+      }
+      
+      const result = await res.json();
+      console.log('Respuesta exitosa:', result); // Para debugging
+      
+      await fetchUsuarios();
+      setShowModal(false);
+      setEditingId(null);
+      setError(null);
+    } catch (e) {
+      console.error('Error en saveUsuario:', e);
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => { fetchEstudiantes(); }, []);
+  // Eliminar usuario
+  const deleteUsuario = async (id?: number) => {
+    if (!id) return;
+    if (!confirm('¿Seguro que deseas eliminar este estudiante?')) return;
+    try {
+      setLoading(true);
+      // Cambiar la URL para incluir el ID como parámetro
+      const res = await fetch(`/api/admin/usuarios/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        // Remover el body ya que no es necesario
+      });
+      if (!res.ok) throw new Error('Error al eliminar usuario');
+      await fetchUsuarios();
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Render principal
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveUsuario();
+  };
+
+  useEffect(() => {
+    fetchUsuarios();
+  }, []);
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Estudiantes</h1>
-      
-      {/* Botón para crear nuevo estudiante - CORREGIDO */}
       <button
         className="mb-4 bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700"
-        onClick={openCreateModal}
+        onClick={() => openModal()}
       >
         Nuevo Estudiante
       </button>
 
       {error && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-          {error}
-        </div>
+        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>
       )}
 
       {loading ? (
@@ -262,31 +239,32 @@ export default function GestionEstudiantes() {
             </tr>
           </thead>
           <tbody>
-            {estudiantes.map(e => (
-              <tr key={e.ID_ESTUDIANTE} className="hover:bg-gray-50">
-                <td className="px-4 py-2 border-b">{e.NUMERO_MATRICULA}</td>
-                <td className="px-4 py-2 border-b">{e.NOMBRE}</td>
-                <td className="px-4 py-2 border-b">{e.APELLIDO}</td>
-                <td className="px-4 py-2 border-b">{e.CARRERA}</td>
-                <td className="px-4 py-2 border-b">{e.CORREO_ELECTRONICO}</td>
-                <td className="px-4 py-2 border-b">{e.PROMEDIO_ACADEMICO ?? '-'}</td>
+            {usuarios.map(u => (
+              <tr key={u.ID_USUARIO} className="hover:bg-gray-50">
+                <td className="px-4 py-2 border-b">{u.NUMERO_MATRICULA}</td>
+                <td className="px-4 py-2 border-b">{u.NOMBRE}</td>
+                <td className="px-4 py-2 border-b">{u.APELLIDO}</td>
+                <td className="px-4 py-2 border-b">{u.CARRERA}</td>
+                <td className="px-4 py-2 border-b">{u.CORREO_ELECTRONICO}</td>
+                <td className="px-4 py-2 border-b">{u.PROMEDIO_ACADEMICO ?? '-'}</td>
                 <td className="px-4 py-2 border-b">
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    e.ESTADO ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {e.ESTADO ? 'Activo' : 'Inactivo'}
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs ${
+                      u.ESTADO ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}
+                  >
+                    {u.ESTADO ? 'Activo' : 'Inactivo'}
                   </span>
                 </td>
                 <td className="px-4 py-2 border-b">
-                  {/* Botón editar - CORREGIDO */}
-                  <button 
-                    onClick={() => openEditModal(e)} 
+                  <button
+                    onClick={() => openModal(u)}
                     className="text-blue-600 hover:text-blue-800 mr-2"
                   >
                     Editar
                   </button>
-                  <button 
-                    onClick={() => e.ID_ESTUDIANTE && deleteEstudiante(e.ID_ESTUDIANTE)} 
+                  <button
+                    onClick={() => deleteUsuario(u.ID_USUARIO)}
                     className="text-red-600 hover:text-red-800"
                   >
                     Eliminar
@@ -298,156 +276,128 @@ export default function GestionEstudiantes() {
         </table>
       )}
 
-      {/* Modal para crear/editar */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg w-full max-w-md max-h-90vh overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">
-              {editingStudent ? 'Editar Estudiante' : 'Nuevo Estudiante'}
-            </h2>
-            
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Número de Matrícula *
-                </label>
-                <input
-                  type="text"
-                  name="NUMERO_MATRICULA"
-                  value={formData.NUMERO_MATRICULA}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  required
-                />
-              </div>
+            <h2 className="text-xl font-bold mb-4">{editingId ? 'Editar Estudiante' : 'Nuevo Estudiante'}</h2>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre *
-                </label>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input
+                name="NOMBRE_USUARIO"
+                value={form.NOMBRE_USUARIO}
+                onChange={handleChange}
+                placeholder="Nombre de usuario"
+                required
+                className="w-full px-3 py-2 border rounded"
+              />
+              {!editingId && (
                 <input
-                  type="text"
-                  name="NOMBRE"
-                  value={formData.NOMBRE}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  required
+                  name="CONTRA"
+                  value={form.CONTRA}
+                  onChange={handleChange}
+                  placeholder="Contraseña"
+                  type="password"
+                  required={!editingId}
+                  className="w-full px-3 py-2 border rounded"
                 />
-              </div>
+              )}
+              <input
+                name="NUMERO_MATRICULA"
+                value={form.NUMERO_MATRICULA}
+                onChange={handleChange}
+                placeholder="Número de Matrícula"
+                required
+                className="w-full px-3 py-2 border rounded"
+              />
+              <input
+                name="NOMBRE"
+                value={form.NOMBRE}
+                onChange={handleChange}
+                placeholder="Nombre"
+                required
+                className="w-full px-3 py-2 border rounded"
+              />
+              <input
+                name="APELLIDO"
+                value={form.APELLIDO}
+                onChange={handleChange}
+                placeholder="Apellido"
+                required
+                className="w-full px-3 py-2 border rounded"
+              />
+              <input
+                name="CARRERA"
+                value={form.CARRERA}
+                onChange={handleChange}
+                placeholder="Carrera"
+                required
+                className="w-full px-3 py-2 border rounded"
+              />
+              <input
+                name="FECHA_NACIMIENTO"
+                type="date"
+                value={form.FECHA_NACIMIENTO || ''}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border rounded"
+              />
+              <input
+                name="CORREO_ELECTRONICO"
+                type="email"
+                value={form.CORREO_ELECTRONICO}
+                onChange={handleChange}
+                placeholder="Correo Electrónico"
+                required
+                className="w-full px-3 py-2 border rounded"
+              />
+              <input
+                name="TELEFONO"
+                type="tel"
+                value={form.TELEFONO || ''}
+                onChange={handleChange}
+                placeholder="Teléfono"
+                className="w-full px-3 py-2 border rounded"
+              />
+              <input
+                name="PROMEDIO_ACADEMICO"
+                type="number"
+                step="0.01"
+                min="0"
+                max="10"
+                value={form.PROMEDIO_ACADEMICO ?? ''}
+                onChange={handleChange}
+                placeholder="Promedio Académico"
+                className="w-full px-3 py-2 border rounded"
+              />
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Apellido *
-                </label>
+              <label className="inline-flex items-center space-x-2">
                 <input
-                  type="text"
-                  name="APELLIDO"
-                  value={formData.APELLIDO}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  required
+                  name="ESTADO"
+                  type="checkbox"
+                  checked={form.ESTADO}
+                  onChange={handleChange}
+                  className="form-checkbox text-teal-600"
                 />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Carrera *
-                </label>
-                <input
-                  type="text"
-                  name="CARRERA"
-                  value={formData.CARRERA}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  required
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fecha de Nacimiento
-                </label>
-                <input
-                  type="date"
-                  name="FECHA_NACIMIENTO"
-                  value={formData.FECHA_NACIMIENTO}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Correo Electrónico *
-                </label>
-                <input
-                  type="email"
-                  name="CORREO_ELECTRONICO"
-                  value={formData.CORREO_ELECTRONICO}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  required
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  name="TELEFONO"
-                  value={formData.TELEFONO}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Promedio Académico
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="10"
-                  name="PROMEDIO_ACADEMICO"
-                  value={formData.PROMEDIO_ACADEMICO}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-
-              <div className="mb-6">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="ESTADO"
-                    checked={formData.ESTADO}
-                    onChange={handleInputChange}
-                    className="mr-2 h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Activo</span>
-                </label>
-              </div>
+                <span>Activo</span>
+              </label>
 
               <div className="flex justify-end space-x-2">
                 <button
                   type="button"
                   onClick={() => {
                     setShowModal(false);
-                    resetForm();
+                    setEditingId(null);
+                    setError(null);
                   }}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="px-4 py-2 border rounded hover:bg-gray-100"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700"
+                  className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700"
                 >
-                  {editingStudent ? 'Actualizar' : 'Crear'}
+                  {editingId ? 'Actualizar' : 'Crear'}
                 </button>
               </div>
             </form>

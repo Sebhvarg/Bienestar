@@ -40,14 +40,14 @@ export default function MainApp() {
         );
       }
       if (activeSection === 'admins') {
-        const GestionAdministradores = React.lazy(() => import('./Dashboard/Admin/Gestion_Administradores'));
+        const GestionAdministradores = React.lazy(() => import('./Dashboard/Admin/Gestion_Administradores.tsx'));
         return (
           <React.Suspense fallback={<div>Cargando sección...</div>}>
             <GestionAdministradores />
           </React.Suspense>
         );
       }
-      if (activeSection === 'medics') {
+      if (activeSection === 'doctors') {
         const GestionMedicos = React.lazy(() => import('./Dashboard/Admin/Gestion_Medicos'));
         return (
           <React.Suspense fallback={<div>Cargando sección...</div>}>
@@ -62,8 +62,18 @@ export default function MainApp() {
             <GestionUsuarios />
           </React.Suspense>
         );
+      
       }
-    }
+      
+      if (activeSection === 'activities') {
+        const GestionActividades = React.lazy(() => import('./Dashboard/Admin/Gestion_Actividades'));
+        return (
+          <React.Suspense fallback={<div>Cargando sección...</div>}>
+            <GestionActividades />
+          </React.Suspense>
+        );
+      }
+    } // Closing brace for if (user.role === 'admin')
 
     // Doctor: Secciones
     if (user.role === 'doctor') {
